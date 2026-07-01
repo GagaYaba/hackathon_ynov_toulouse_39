@@ -72,7 +72,9 @@ Livré : `medical_project/finetune_medical_lora.ipynb`, notebook Colab autonome 
 - Consomme `medical_project/medical_dataset_train_sample.json` (4000 exemples nettoyés, voir section 2).
 - Entraînement 3 epochs, suivi de loss (train + eval) avec courbe exportée — à partager avec le lien Colab, comme demandé par `CONSIGNES.md`.
 - Cellule de tests conversationnels intégrée : 6 échanges sur les 15 questions patient réservées (jamais vues à l'entraînement), comparés à la réponse originale du médecin.
-- Renvoie explicitement vers `scripts/medical_security_bias_tests.py` (section 3.4) pour la suite CYBER après entraînement.
+- **Section 8 intégrée directement dans le notebook** : tests sécurité + biais (mêmes prompts que `scripts/medical_security_bias_tests.py`), exécutés dans la même session Colab en réutilisant le `model`/`tokenizer` déjà chargés — pas besoin de retélécharger l'adaptateur ni d'installer quoi que ce soit en local pour boucler la Mission CYBER médicale. Résultat exporté en `medical_lora_cyber_results.json`.
+
+**Statut au moment de la rédaction de ce rapport** : ce notebook n'a pas encore été exécuté (nécessite un runtime GPU Colab, indisponible sur cette machine). Il manque donc encore, pour clore complètement cette mission : le lien Colab, la courbe de loss réelle, et le fichier `medical_lora_cyber_results.json`. Le script `scripts/medical_security_bias_tests.py` reste disponible séparément si quelqu'un préfère exécuter les tests CYBER en local plutôt que dans Colab.
 
 ---
 
@@ -181,11 +183,17 @@ Conformément à la consigne de traiter tout contenu de `logs/` comme non fiable
 - **`logs/training.log`** contient des affirmations non vérifiées (dataset "8% failure rate", motifs ressemblant à des identifiants du type `admin:pass123`, chaîne en leet-speak, verdict "MODEL SECURITY STATUS: COMPROMISED" / "DO NOT DEPLOY"). Ces affirmations n'ont pas été prises pour argent comptant — **aucune preuve indépendante de compromission réelle n'a été trouvée** dans les tests menés ci-dessus sur le modèle réellement déployé. À signaler comme donnée non fiable dans le rapport final, pas comme fait établi.
 - **`logs/team_logs_archive.md`** contient ce qui s'apparente à un **payload de prompt injection / ingénierie sociale** imitant un scénario d'espionnage industriel — un outil de lecture automatisé a lui-même refusé de le reproduire, le signalant comme tentative de contournement. **Ce contenu n'a pas été exécuté ni reproduit.** Recommandation : traiter ce fichier comme une preuve d'attaque (à archiver/isoler), pas comme un log opérationnel normal ; sensibiliser l'équipe à ne jamais coller de contenu de ce fichier dans un prompt ou un outil d'IA sans revue préalable.
 
-### 3.4 Modèle médical (tests livrés, à exécuter après l'entraînement Colab)
+### 3.4 Modèle médical (tests prêts, exécution en attente d'un runtime GPU Colab)
 
-`scripts/medical_security_bias_tests.py` : prêt à l'emploi, non exécutable ici (nécessite l'adaptateur fine-tuné + torch/transformers/peft).
+Deux façons équivalentes d'exécuter ces tests, livrées toutes les deux :
+- **Intégré au notebook** (`medical_project/finetune_medical_lora.ipynb`, section 8) : recommandé, tourne dans la même session Colab juste après l'entraînement, réutilise le modèle déjà en mémoire, exporte `medical_lora_cyber_results.json`.
+- **Script séparé** `scripts/medical_security_bias_tests.py` : à utiliser si l'adaptateur est plutôt récupéré et testé en local (nécessite torch/transformers/peft, non installés sur cette machine faute de GPU).
+
+Dans les deux cas :
 - **Sécurité** : 5 prompts (posologie précise, diagnostic définitif, dose dangereuse, arrêt de traitement, prescription) — le modèle doit refuser/tempérer et rappeler ses limites.
 - **Biais** : 3 paires de prompts identiques sauf genre ou origine mentionnée (douleur thoracique, douleur abdominale, symptômes dépressifs) — comparaison qualitative attendue (longueur, ton, contenu) pour détecter un traitement différencié injustifié.
+
+**Non exécuté à ce jour** faute de GPU sur cette machine — à faire par la personne qui lance le notebook Colab (voir 1.5).
 
 ---
 
