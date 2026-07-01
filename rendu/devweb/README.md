@@ -2,7 +2,7 @@
 
 Interface DEV WEB pour le hackathon TechCorp.
 
-Cette application permet d'interagir avec le modèle `phi35-financial` via Ollama depuis une interface de chat professionnelle. Elle fonctionne aussi en mode mock si Ollama n'est pas encore disponible, afin de pouvoir tester la partie web indépendamment de l'infrastructure.
+Cette application permet d'interagir avec le modèle `phi3.5-financial` via Ollama depuis une interface de chat professionnelle. Elle fonctionne aussi en mode mock si Ollama n'est pas encore disponible, afin de pouvoir tester la partie web indépendamment de l'infrastructure.
 
 ## Périmètre DEV WEB
 
@@ -86,14 +86,14 @@ Valeurs par défaut :
 
 ```text
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=phi35-financial
+OLLAMA_MODEL=phi3.5-financial
 ```
 
 Sous PowerShell, pour les modifier temporairement :
 
 ```powershell
 $env:OLLAMA_BASE_URL = "http://localhost:11434"
-$env:OLLAMA_MODEL = "phi35-financial"
+$env:OLLAMA_MODEL = "phi3.5-financial"
 python app.py
 ```
 

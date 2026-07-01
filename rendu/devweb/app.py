@@ -7,7 +7,7 @@ from flask import Flask, jsonify, render_template, request
 app = Flask(__name__)
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi35-financial")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3.5-financial")
 MAX_MESSAGE_LENGTH = 2000
 REQUEST_TIMEOUT = 8
 
