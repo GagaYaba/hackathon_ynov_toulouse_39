@@ -4,13 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TechCorp Assistant</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='assets/techcorp-mascot.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assets/techcorp-mascot.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
   <body data-theme="dark">
     <div class="app-shell">
       <aside class="sidebar" aria-label="Navigation de conversation">
         <div class="brand-block">
-          <span class="brand-mark" aria-hidden="true">T</span>
+          <img class="brand-mark" src="{{ url_for('static', filename='assets/techcorp-mascot.png') }}" alt="TechCorp mascot">
           <div>
             <p class="brand-name">TechCorp</p>
             <p class="brand-context">DEV WEB</p>
@@ -18,8 +20,12 @@
         </div>
 
         <button id="newChatButton" class="new-chat-button" type="button">
-          <i data-lucide="plus" data-fallback="+" aria-hidden="true"></i>
-          Nouvelle conversation
+          <i data-lucide="square-pen" data-fallback="+" aria-hidden="true"></i>
+          Nouveau chat
+        </button>
+        <button id="searchChatsButton" class="search-chats-button" type="button">
+          <i data-lucide="search" data-fallback="?" aria-hidden="true"></i>
+          Rechercher dans les chats
         </button>
 
         <section class="conversation-panel" aria-label="Organisation des conversations">
@@ -27,6 +33,7 @@
             <div class="section-header">
               <button id="foldersToggle" class="section-toggle" type="button" aria-expanded="true">
                 <i class="section-chevron" data-lucide="chevron-down" data-fallback="v" aria-hidden="true"></i>
+                <i data-lucide="folder" data-fallback="[]" aria-hidden="true"></i>
                 Dossiers
               </button>
               <button id="addFolderButton" class="section-action" type="button" aria-label="Cr&eacute;er un dossier">
@@ -39,6 +46,7 @@
           <div class="sidebar-section">
             <button id="recentsToggle" class="section-toggle section-toggle-full" type="button" aria-expanded="true">
               <i class="section-chevron" data-lucide="chevron-down" data-fallback="v" aria-hidden="true"></i>
+              <!-- <i data-lucide="message-square" data-fallback="-" aria-hidden="true"></i> -->
               R&eacute;cents
             </button>
             <div id="recentConversationList" class="conversation-list"></div>
@@ -130,6 +138,31 @@
             <button id="modalConfirmButton" class="modal-primary-button" type="submit">Valider</button>
           </div>
         </form>
+      </section>
+    </div>
+
+    <div id="searchOverlay" class="search-overlay" hidden>
+      <section
+        class="search-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="searchTitle"
+      >
+        <button id="searchCloseButton" class="modal-close-button" type="button" aria-label="Fermer la recherche">
+          <i data-lucide="x" data-fallback="x" aria-hidden="true"></i>
+        </button>
+        <h2 id="searchTitle">Rechercher dans les chats</h2>
+        <label for="searchInput" class="sr-only">Recherche</label>
+        <div class="search-input-shell">
+          <i data-lucide="search" data-fallback="?" aria-hidden="true"></i>
+          <input
+            id="searchInput"
+            type="text"
+            autocomplete="off"
+            placeholder="Rechercher une conversation ou un message..."
+          >
+        </div>
+        <div id="searchResults" class="search-results" role="listbox" aria-label="R&eacute;sultats de recherche"></div>
       </section>
     </div>
 

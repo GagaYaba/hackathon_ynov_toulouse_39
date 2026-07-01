@@ -17,20 +17,14 @@ Le projet contient aussi une mission R&D médicale liée au fine-tuning LoRA d'u
 - Mode mock si Ollama n'est pas disponible.
 - Statut de connexion Ollama : connecté ou mode test.
 - Historique de conversation côté navigateur.
+- Recherche locale dans les conversations et messages.
 - Conversations multiples sauvegardées en `localStorage`.
 - Organisation locale des conversations en dossiers et récents.
 - Drag and drop des conversations entre dossiers et récents.
 - Thème dark / light avec bascule depuis l'interface.
 - Préférence de thème sauvegardée en `localStorage`.
-- Icônes Lucide pour les actions d'interface.
-- Zone de saisie auto-redimensionnée jusqu'à une hauteur maximale.
-- Envoi avec `Entrée` et retour à la ligne avec `Shift` + `Entrée`.
-- Rendu Markdown simple des réponses assistant : gras, italique, code, blocs de code et listes.
-- Bouton de copie des réponses assistant en texte brut.
-- Défilement automatique vers le dernier message.
 - Proxy Flask entre le frontend et Ollama.
 - Configuration simple de l'URL Ollama et du nom du modèle.
-- Message de prévention sur les données sensibles.
 
 ## Stack
 

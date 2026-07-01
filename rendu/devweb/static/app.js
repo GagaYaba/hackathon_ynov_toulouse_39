@@ -16,6 +16,7 @@ const messageInput = document.querySelector("#messageInput");
 const sendButton = document.querySelector("#sendButton");
 const clearButton = document.querySelector("#clearButton");
 const newChatButton = document.querySelector("#newChatButton");
+const searchChatsButton = document.querySelector("#searchChatsButton");
 const foldersToggle = document.querySelector("#foldersToggle");
 const recentsToggle = document.querySelector("#recentsToggle");
 const addFolderButton = document.querySelector("#addFolderButton");
@@ -36,6 +37,10 @@ const modalCancelButton = document.querySelector("#modalCancelButton");
 const modalCloseButton = document.querySelector("#modalCloseButton");
 const modalConfirmButton = document.querySelector("#modalConfirmButton");
 const themeToggle = document.querySelector("#themeToggle");
+const searchOverlay = document.querySelector("#searchOverlay");
+const searchInput = document.querySelector("#searchInput");
+const searchResults = document.querySelector("#searchResults");
+const searchCloseButton = document.querySelector("#searchCloseButton");
 
 let conversations = [];
 let folders = [];
@@ -60,6 +65,8 @@ const ICON_FALLBACKS = {
   "move-right": ">",
   moon: "o",
   plus: "+",
+  search: "?",
+  "square-pen": "+",
   sun: "*",
   "trash-2": "x",
   x: "x",
@@ -614,6 +621,154 @@ function renderMessages() {
   scrollToBottom({ smooth: false });
 }
 
+function openConversation(conversationId, { focusComposer = true } = {}) {
+  if (!conversations.some((conversation) => conversation.id === conversationId)) {
+    return;
+  }
+
+  activeConversationId = conversationId;
+  saveState();
+  renderApp();
+
+  if (focusComposer) {
+    messageInput.focus();
+  }
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function createSearchExcerpt(content, query) {
+  const text = String(content || "").replace(/\s+/g, " ").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  const normalizedText = normalizeSearchText(text);
+  const normalizedQuery = normalizeSearchText(query);
+  const matchIndex = normalizedText.indexOf(normalizedQuery);
+  const start = matchIndex > 28 ? matchIndex - 28 : 0;
+  const end = Math.min(text.length, start + 118);
+  const prefix = start > 0 ? "... " : "";
+  const suffix = end < text.length ? " ..." : "";
+
+  return `${prefix}${text.slice(start, end)}${suffix}`;
+}
+
+function findSearchResults(query) {
+  const normalizedQuery = normalizeSearchText(query);
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const results = [];
+
+  conversations.forEach((conversation) => {
+    const title = conversation.title || DEFAULT_TITLE;
+
+    if (normalizeSearchText(title).includes(normalizedQuery)) {
+      results.push({
+        conversationId: conversation.id,
+        title,
+        excerpt: "Titre de conversation",
+      });
+    }
+
+    conversation.messages.some((message) => {
+      if (!normalizeSearchText(message.content).includes(normalizedQuery)) {
+        return false;
+      }
+
+      results.push({
+        conversationId: conversation.id,
+        title,
+        excerpt: createSearchExcerpt(message.content, query),
+      });
+
+      return results.length >= 30;
+    });
+  });
+
+  return results.slice(0, 30);
+}
+
+function renderSearchResults() {
+  const query = searchInput.value.trim();
+  searchResults.innerHTML = "";
+
+  if (!query) {
+    const empty = document.createElement("div");
+    empty.className = "search-empty";
+    empty.textContent = "Recherchez une conversation ou un message...";
+    searchResults.appendChild(empty);
+    return;
+  }
+
+  const results = findSearchResults(query);
+
+  if (results.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "search-empty";
+    empty.textContent = "Aucun r\u00e9sultat";
+    searchResults.appendChild(empty);
+    return;
+  }
+
+  results.forEach((result, index) => {
+    const button = document.createElement("button");
+    button.className = "search-result";
+    button.type = "button";
+    button.dataset.searchConversationId = result.conversationId;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", index === 0 ? "true" : "false");
+
+    const body = document.createElement("span");
+    body.className = "search-result-body";
+
+    const title = document.createElement("span");
+    title.className = "search-result-title";
+    title.textContent = result.title || DEFAULT_TITLE;
+
+    const excerpt = document.createElement("span");
+    excerpt.className = "search-result-excerpt";
+    excerpt.textContent = result.excerpt || "Conversation";
+
+    body.append(title, excerpt);
+    button.append(createIcon("message-square"), body);
+    searchResults.appendChild(button);
+  });
+
+  refreshIcons();
+}
+
+function openSearchModal() {
+  searchOverlay.hidden = false;
+  searchInput.value = "";
+  renderSearchResults();
+  refreshIcons();
+
+  requestAnimationFrame(() => {
+    searchInput.focus();
+  });
+}
+
+function closeSearchModal() {
+  searchOverlay.hidden = true;
+  searchInput.value = "";
+  searchResults.innerHTML = "";
+}
+
+function openSearchResult(conversationId) {
+  closeSearchModal();
+  openConversation(conversationId);
+}
+
 function createConversationRow(conversation) {
   const row = document.createElement("div");
   row.className = `conversation-row${conversation.id === activeConversationId ? " is-active" : ""}`;
@@ -778,6 +933,7 @@ function setSending(sending) {
   sendButton.disabled = sending;
   clearButton.disabled = sending;
   newChatButton.disabled = sending;
+  searchChatsButton.disabled = sending;
   addFolderButton.disabled = sending;
   foldersToggle.disabled = sending;
   recentsToggle.disabled = sending;
@@ -1187,6 +1343,7 @@ recentsToggle.addEventListener("click", () => {
 addFolderButton.addEventListener("click", addFolder);
 clearButton.addEventListener("click", clearActiveConversation);
 newChatButton.addEventListener("click", () => startNewConversation());
+searchChatsButton.addEventListener("click", openSearchModal);
 themeToggle?.addEventListener("click", () => {
   const currentTheme = document.body.dataset.theme === "light" ? "light" : "dark";
   applyTheme(currentTheme === "light" ? "dark" : "light");
@@ -1216,7 +1373,39 @@ modalOverlay.addEventListener("click", (event) => {
   }
 });
 
+searchCloseButton.addEventListener("click", closeSearchModal);
+searchOverlay.addEventListener("click", (event) => {
+  if (event.target === searchOverlay) {
+    closeSearchModal();
+  }
+});
+searchInput.addEventListener("input", renderSearchResults);
+searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    const firstResult = searchResults.querySelector("[data-search-conversation-id]");
+
+    if (firstResult) {
+      event.preventDefault();
+      openSearchResult(firstResult.dataset.searchConversationId);
+    }
+  }
+});
+searchResults.addEventListener("click", (event) => {
+  const resultButton = event.target.closest("[data-search-conversation-id]");
+
+  if (!resultButton) {
+    return;
+  }
+
+  openSearchResult(resultButton.dataset.searchConversationId);
+});
+
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !searchOverlay.hidden) {
+    closeSearchModal();
+    return;
+  }
+
   if (event.key === "Escape" && !modalOverlay.hidden) {
     closeModal();
   }
@@ -1285,10 +1474,7 @@ folderList.addEventListener("click", (event) => {
 
   const conversationButton = event.target.closest("[data-conversation-id]");
   if (conversationButton) {
-    activeConversationId = conversationButton.dataset.conversationId;
-    saveState();
-    renderApp();
-    messageInput.focus();
+    openConversation(conversationButton.dataset.conversationId);
     return;
   }
 
@@ -1316,10 +1502,7 @@ recentConversationList.addEventListener("click", (event) => {
     return;
   }
 
-  activeConversationId = conversationButton.dataset.conversationId;
-  saveState();
-  renderApp();
-  messageInput.focus();
+  openConversation(conversationButton.dataset.conversationId);
 });
 
 applyTheme(getStoredTheme(), { persist: false });
