@@ -114,6 +114,38 @@ python app.py
 
 `OLLAMA_BASE_URL` doit être la racine du serveur, sans `/api/chat` ni `/api/generate`. L'application normalise automatiquement l'URL si l'utilisateur met `/api/chat` ou `/api/generate` par erreur.
 
+## Déploiement en ligne
+
+L'interface DEV WEB peut aussi être déployée sur Render afin d'être accessible publiquement par les autres membres du groupe.
+
+Configuration utilisée sur Render :
+
+```text
+Language: Python 3
+Branch: main
+Root Directory: rendu/devweb
+Build Command: pip install -r requirements.txt
+Start Command: python app.py
+Instance Type: Free
+```
+
+Variables d'environnement Render :
+
+```text
+OLLAMA_BASE_URL=https://pacifier-diaper-geologist.ngrok-free.dev
+OLLAMA_MODEL=phi3-financial
+```
+
+Important :
+
+- `OLLAMA_BASE_URL` doit contenir uniquement la racine du serveur Ollama/ngrok.
+- Il ne faut pas ajouter `/api/chat` ou `/api/generate` dans cette variable.
+- L'application construit elle-même les endpoints `/api/chat` et `/api/generate`.
+- Si le serveur INFRA/ngrok est arrêté, l'interface reste accessible mais repasse automatiquement en mode mock.
+- L'application utilise la variable `PORT` fournie par Render pour écouter sur le bon port en production.
+
+URL de démonstration : https://hackathon-ynov-toulouse-39.onrender.com/
+
 ## Intégration INFRA
 
 L'équipe INFRA expose Ollama. L'interface web appelle uniquement le backend Flask local, puis le backend relaie les requêtes vers l'API Ollama configurée avec `OLLAMA_BASE_URL`.
@@ -218,6 +250,9 @@ Il n'y a pas de synchronisation serveur. Pour réinitialiser les données locale
 - Pas d'authentification, car hors périmètre du rendu DEV WEB.
 - Streaming disponible via Flask et Ollama quand l'API distante le supporte.
 - Historique uniquement local, sans synchronisation serveur.
+- L'historique reste stocké localement dans le navigateur de chaque utilisateur.
+- Le serveur Render dépend du serveur Ollama/ngrok de l'équipe INFRA.
+- Si l'INFRA coupe ngrok, l'interface fonctionne encore mais sans réponse IA réelle.
 - Modèle et intégration expérimentaux dans le contexte du hackathon.
 
 ## Tests
