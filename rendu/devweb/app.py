@@ -6,19 +6,59 @@ from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi35-financial")
+
+def normalize_ollama_base_url(value):
+    base_url = (value or "http://localhost:11434").strip().rstrip("/")
+
+    for suffix in ("/api/generate", "/api/chat"):
+        if base_url.endswith(suffix):
+            base_url = base_url[: -len(suffix)].rstrip("/")
+
+    return base_url or "http://localhost:11434"
+
+
+OLLAMA_BASE_URL = normalize_ollama_base_url(os.getenv("OLLAMA_BASE_URL"))
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3-financial")
 MAX_MESSAGE_LENGTH = 2000
-REQUEST_TIMEOUT = 8
+REQUEST_TIMEOUT = 60
+STATUS_TIMEOUT = 10
+CHAT_ENDPOINT = "/api/chat"
+GENERATE_ENDPOINT = "/api/generate"
+OLLAMA_HEADERS = {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
+}
 
 
-def check_ollama_status():
+def get_ollama_status():
     try:
-        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
+        response = requests.get(
+            f"{OLLAMA_BASE_URL}/api/tags",
+            headers=OLLAMA_HEADERS,
+            timeout=STATUS_TIMEOUT,
+        )
         response.raise_for_status()
-        return True
+        return {
+            "connected": True,
+            "provider": "ollama",
+            "model": OLLAMA_MODEL,
+            "baseUrl": OLLAMA_BASE_URL,
+            "chatEndpoint": CHAT_ENDPOINT,
+            "fallbackEndpoint": GENERATE_ENDPOINT,
+        }
     except requests.RequestException:
-        return False
+        return {
+            "connected": False,
+            "provider": "mock",
+            "model": OLLAMA_MODEL,
+            "baseUrl": OLLAMA_BASE_URL,
+            "chatEndpoint": CHAT_ENDPOINT,
+            "fallbackEndpoint": GENERATE_ENDPOINT,
+            "message": (
+                "Endpoint /api/tags indisponible, tentative de chat possible "
+                "via /api/chat avec fallback /api/generate."
+            ),
+        }
 
 
 def build_messages(history, message):
@@ -39,11 +79,146 @@ def build_messages(history, message):
     return messages
 
 
-def mock_response(message):
-    return {
-        "answer": f"[MODE TEST] Ollama n\u2019est pas encore connect\u00e9. Message re\u00e7u : {message}",
+def build_generate_prompt(history, message):
+    lines = [
+        "You are TechCorp Financial Assistant, a helpful financial/business assistant.",
+        "",
+        "Conversation history:",
+    ]
+
+    has_history = False
+    if isinstance(history, list):
+        for item in history:
+            if not isinstance(item, dict):
+                continue
+
+            role = item.get("role")
+            content = item.get("content")
+
+            if role not in {"user", "assistant"} or not isinstance(content, str):
+                continue
+
+            label = "User" if role == "user" else "Assistant"
+            lines.append(f"{label}: {content[:MAX_MESSAGE_LENGTH]}")
+            has_history = True
+
+    if not has_history:
+        lines.append("No previous messages.")
+
+    lines.extend(["", "Current user question:", message])
+    return "\n".join(lines)
+
+
+def mock_response(message, reason=None):
+    reason_text = f" Raison : {reason}" if reason else ""
+    payload = {
+        "answer": (
+            "[MODE TEST] Impossible de contacter le serveur "
+            f"d\u2019inf\u00e9rence.{reason_text} Message re\u00e7u : {message}"
+        ),
         "provider": "mock",
         "connected": False,
+        "baseUrl": OLLAMA_BASE_URL,
+    }
+
+    if reason:
+        payload["message"] = reason
+
+    return payload
+
+
+def extract_answer(payload):
+    if not isinstance(payload, dict):
+        return None
+
+    message = payload.get("message")
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+
+    for key in ("response", "answer"):
+        content = payload.get(key)
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+
+    return None
+
+
+def fallback_response(message, reason):
+    return mock_response(message, reason)
+
+
+def format_ollama_error(error, endpoint):
+    if isinstance(error, requests.Timeout):
+        return f"timeout apres {REQUEST_TIMEOUT} secondes."
+
+    if isinstance(error, requests.HTTPError) and error.response is not None:
+        return f"HTTP {error.response.status_code} retourne par {endpoint}."
+
+    if isinstance(error, requests.ConnectionError):
+        return "connexion impossible au serveur d'inference."
+
+    return "requete impossible vers le serveur d'inference."
+
+
+def should_try_generate(error):
+    if not isinstance(error, requests.HTTPError) or error.response is None:
+        return False
+
+    if error.response.status_code in {404, 405}:
+        return True
+
+    response_text = (error.response.text or "").lower()
+    endpoint_missing_markers = (
+        "not found",
+        "page not found",
+        "route not found",
+        "endpoint",
+        "not exist",
+        "does not exist",
+    )
+    return any(marker in response_text for marker in endpoint_missing_markers)
+
+
+def post_ollama(endpoint, payload):
+    response = requests.post(
+        f"{OLLAMA_BASE_URL}{endpoint}",
+        json=payload,
+        headers=OLLAMA_HEADERS,
+        timeout=REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+
+    try:
+        return response.json()
+    except ValueError as error:
+        raise ValueError(
+            "reponse non JSON renvoyee par le serveur "
+            "(HTML ou avertissement ngrok possible)."
+        ) from error
+
+
+def call_ollama_chat(messages):
+    return post_ollama(
+        CHAT_ENDPOINT,
+        {"model": OLLAMA_MODEL, "messages": messages, "stream": False},
+    )
+
+
+def call_ollama_generate(prompt):
+    return post_ollama(
+        GENERATE_ENDPOINT,
+        {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+    )
+
+
+def ollama_response(answer, provider):
+    return {
+        "answer": answer,
+        "provider": provider,
+        "connected": True,
+        "baseUrl": OLLAMA_BASE_URL,
     }
 
 
@@ -54,14 +229,7 @@ def index():
 
 @app.get("/api/status")
 def api_status():
-    connected = check_ollama_status()
-    return jsonify(
-        {
-            "connected": connected,
-            "provider": "ollama" if connected else "mock",
-            "model": OLLAMA_MODEL,
-        }
-    )
+    return jsonify(get_ollama_status())
 
 
 @app.post("/api/chat")
@@ -78,23 +246,53 @@ def api_chat():
         return jsonify({"error": "Le message ne doit pas depasser 2000 caracteres."}), 400
 
     messages = build_messages(history, message)
+    prompt = build_generate_prompt(history, message)
+    chat_error = None
 
     try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/chat",
-            json={"model": OLLAMA_MODEL, "messages": messages, "stream": False},
-            timeout=REQUEST_TIMEOUT,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        answer = payload.get("message", {}).get("content")
-
+        payload = call_ollama_chat(messages)
+        answer = extract_answer(payload)
         if not answer:
-            return jsonify(mock_response(message))
+            return jsonify(
+                fallback_response(
+                    message,
+                    "format de reponse inattendu depuis /api/chat.",
+                )
+            )
 
-        return jsonify({"answer": answer, "provider": "ollama", "connected": True})
-    except (requests.RequestException, ValueError):
-        return jsonify(mock_response(message))
+        return jsonify(ollama_response(answer, "ollama-chat"))
+    except requests.RequestException as error:
+        chat_error = error
+        if not should_try_generate(error):
+            return jsonify(
+                fallback_response(message, format_ollama_error(error, CHAT_ENDPOINT))
+            )
+    except ValueError as error:
+        return jsonify(fallback_response(message, str(error)))
+
+    try:
+        payload = call_ollama_generate(prompt)
+        answer = extract_answer(payload)
+        if not answer:
+            return jsonify(
+                fallback_response(
+                    message,
+                    "format de reponse inattendu depuis /api/generate.",
+                )
+            )
+
+        return jsonify(ollama_response(answer, "ollama-generate"))
+    except requests.RequestException as error:
+        chat_reason = format_ollama_error(chat_error, CHAT_ENDPOINT)
+        generate_reason = format_ollama_error(error, GENERATE_ENDPOINT)
+        return jsonify(
+            fallback_response(
+                message,
+                f"{chat_reason} Fallback /api/generate en echec : {generate_reason}",
+            )
+        )
+    except ValueError as error:
+        return jsonify(fallback_response(message, str(error)))
 
 
 if __name__ == "__main__":

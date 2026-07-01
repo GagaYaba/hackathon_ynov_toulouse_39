@@ -2,7 +2,9 @@
 
 Interface DEV WEB pour le hackathon TechCorp.
 
-Cette application permet d'interagir avec le modèle `phi35-financial` via Ollama depuis une interface de chat professionnelle. Elle fonctionne aussi en mode mock si Ollama n'est pas encore disponible, afin de pouvoir tester la partie web indépendamment de l'infrastructure.
+Cette application permet d'interagir avec le modèle `phi3-financial` via Ollama depuis une interface de chat professionnelle. Elle fonctionne aussi en mode mock si Ollama n'est pas encore disponible, afin de pouvoir tester la partie web indépendamment de l'infrastructure.
+
+Le modèle est présenté dans le sujet comme Phi-3.5-Financial, mais son nom technique exposé par Ollama dans notre déploiement INFRA est `phi3-financial`.
 
 ## Périmètre DEV WEB
 
@@ -86,18 +88,52 @@ Valeurs par défaut :
 
 ```text
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=phi35-financial
+OLLAMA_MODEL=phi3-financial
 ```
 
 Sous PowerShell, pour les modifier temporairement :
 
 ```powershell
 $env:OLLAMA_BASE_URL = "http://localhost:11434"
-$env:OLLAMA_MODEL = "phi35-financial"
+$env:OLLAMA_MODEL = "phi3-financial"
 python app.py
 ```
 
 Si Ollama n'est pas disponible ou si le modèle n'est pas encore installé, l'API `/api/chat` renvoie une réponse de test claire avec le provider `mock`.
+
+## Connexion au serveur INFRA ngrok
+
+L'équipe INFRA peut exposer Ollama via une URL distante ngrok. Dans ce cas, configurer uniquement l'URL de base, sans chemin API :
+
+```powershell
+$env:OLLAMA_BASE_URL = "https://pacifier-diaper-geologist.ngrok-free.dev"
+$env:OLLAMA_MODEL = "phi3-financial"
+python app.py
+```
+
+Ne pas mettre `/api/generate` dans `OLLAMA_BASE_URL`. L'application construit elle-même l'appel vers `POST /api/chat`.
+
+Le backend essaie d'abord l'endpoint Ollama standard :
+
+```text
+POST /api/chat
+```
+
+Si `/api/chat` n'est pas disponible, par exemple avec une erreur `404` ou `405`, le backend tente automatiquement le fallback :
+
+```text
+POST /api/generate
+```
+
+Le frontend continue donc d'appeler uniquement le backend Flask local `POST /api/chat`. Le choix entre `/api/chat` et `/api/generate` reste géré côté Flask.
+
+Si l'URL est saisie par erreur avec `/api/generate` ou `/api/chat`, le backend nettoie ce suffixe au lancement. La valeur recommandée reste toutefois :
+
+```text
+OLLAMA_BASE_URL=https://pacifier-diaper-geologist.ngrok-free.dev
+```
+
+Si le serveur INFRA expose seulement `/api/generate`, l'interface peut continuer à fonctionner grâce au fallback automatique.
 
 ## Connexion avec l'équipe INFRA
 
@@ -124,20 +160,20 @@ Demander à l'équipe INFRA de confirmer :
 ## Routes Flask
 
 - `GET /` : affiche l'interface web.
-- `GET /api/status` : vérifie la disponibilité d'Ollama via `/api/tags`.
-- `POST /api/chat` : transmet le message utilisateur et l'historique actif à Ollama via `/api/chat`, ou renvoie une réponse mock si Ollama n'est pas disponible.
+- `GET /api/status` : vérifie la disponibilité d'Ollama via `/api/tags` quand l'endpoint est disponible. Si `/api/tags` n'est pas exposé par ngrok, l'interface passe en mode test mais le chat peut quand même être tenté via `/api/chat`.
+- `POST /api/chat` : transmet le message utilisateur et l'historique actif à Ollama via `/api/chat`, tente `/api/generate` si `/api/chat` n'est pas disponible, ou renvoie une réponse mock si Ollama n'est pas disponible.
 
 Réponse attendue côté frontend pour `/api/chat` :
 
 ```json
 {
   "answer": "...",
-  "provider": "ollama ou mock",
+  "provider": "ollama-chat, ollama-generate ou mock",
   "connected": false
 }
 ```
 
-Le champ `connected` vaut `true` lorsque la réponse vient d'Ollama, et `false` lorsque l'application bascule en mode mock.
+Le champ `connected` vaut `true` lorsque la réponse vient d'Ollama, et `false` lorsque l'application bascule en mode mock. Le champ `provider` vaut `ollama-chat` si `/api/chat` a répondu, `ollama-generate` si le fallback `/api/generate` a été utilisé, ou `mock` en mode test.
 
 ## Stockage local
 
