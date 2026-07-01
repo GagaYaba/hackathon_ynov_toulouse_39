@@ -18,6 +18,8 @@ Le repo contient aussi une mission médicale R&D liée au fine-tuning LoRA d'un 
 - Connexion à Ollama en local ou via le serveur INFRA distant.
 - Support d'une URL ngrok.
 - Backend Flask qui tente `/api/chat`, puis `/api/generate` en fallback.
+- Streaming des réponses assistant via `/api/chat/stream`.
+- Fallback non-stream via `/api/chat` si le streaming échoue.
 - Mode mock si Ollama n'est pas disponible.
 - Statut serveur affiché dans l'interface.
 - Historique de conversation côté navigateur.
@@ -158,6 +160,8 @@ Exemple de réponse :
 
 ### `POST /api/chat`
 
+Endpoint non-stream conservé comme fallback de sécurité.
+
 Body :
 
 ```json
@@ -183,6 +187,21 @@ Providers possibles :
 - `ollama-generate` : réponse obtenue via le fallback `/api/generate`.
 - `mock` : réponse de test parce que le serveur d'inférence n'a pas répondu correctement.
 
+### `POST /api/chat/stream`
+
+Endpoint utilisé en priorité par le frontend pour afficher la réponse assistant progressivement.
+
+Body identique à `/api/chat` :
+
+```json
+{
+  "message": "Explique-moi ce qu'est la TVA",
+  "history": []
+}
+```
+
+La réponse locale est un flux texte simple. Le backend tente le streaming distant via `/api/chat`, puis `/api/generate` si `/api/chat` n'est pas disponible. Si l'API distante ou le navigateur ne supporte pas le streaming, l'interface bascule sur le comportement classique ou sur le mode mock.
+
 ## Stockage local
 
 L'application ne nécessite aucune base de données. Les données d'interface sont stockées dans le navigateur avec `localStorage` :
@@ -204,7 +223,7 @@ Il n'y a pas de synchronisation serveur. Pour réinitialiser les données locale
 - Les erreurs retournées au frontend sont simplifiées.
 - Les messages utilisateur sont limités à 2000 caractères.
 - Pas d'authentification, car hors périmètre du rendu DEV WEB.
-- Pas de streaming pour l'instant.
+- Streaming disponible via Flask et Ollama quand l'API distante le supporte.
 - Historique uniquement local, sans synchronisation serveur.
 - Modèle et intégration expérimentaux dans le contexte du hackathon.
 
@@ -223,6 +242,7 @@ Test API local après lancement de l'application :
 ```powershell
 Invoke-RestMethod http://localhost:5000/api/status
 Invoke-RestMethod -Method Post http://localhost:5000/api/chat -ContentType "application/json" -Body '{"message":"Explique-moi ce qu''est la TVA","history":[]}'
+Invoke-WebRequest -Method Post http://localhost:5000/api/chat/stream -ContentType "application/json" -Body '{"message":"Explique-moi ce qu''est la TVA","history":[]}'
 ```
 
 Test manuel :

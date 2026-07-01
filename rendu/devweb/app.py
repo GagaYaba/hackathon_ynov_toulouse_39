@@ -1,7 +1,8 @@
+import json
 import os
 
 import requests
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 
 app = Flask(__name__)
@@ -177,6 +178,21 @@ def should_try_generate(error):
     return any(marker in response_text for marker in endpoint_missing_markers)
 
 
+def parse_chat_request():
+    data = request.get_json(silent=True) or {}
+    message = data.get("message", "")
+    history = data.get("history", [])
+
+    if not isinstance(message, str) or not message.strip():
+        return None, None, ("Le message est obligatoire.", 400)
+
+    message = message.strip()
+    if len(message) > MAX_MESSAGE_LENGTH:
+        return None, None, ("Le message ne doit pas depasser 2000 caracteres.", 400)
+
+    return message, history, None
+
+
 def post_ollama(endpoint, payload):
     response = requests.post(
         f"{OLLAMA_BASE_URL}{endpoint}",
@@ -209,6 +225,24 @@ def call_ollama_generate(prompt):
     )
 
 
+def post_ollama_stream(endpoint, payload):
+    response = requests.post(
+        f"{OLLAMA_BASE_URL}{endpoint}",
+        json=payload,
+        headers=OLLAMA_HEADERS,
+        stream=True,
+        timeout=REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+
+    content_type = response.headers.get("Content-Type", "").lower()
+    if "text/html" in content_type:
+        response.close()
+        raise ValueError("reponse HTML renvoyee par le serveur distant.")
+
+    return response
+
+
 def ollama_response(answer, provider):
     return {
         "answer": answer,
@@ -216,6 +250,73 @@ def ollama_response(answer, provider):
         "connected": True,
         "baseUrl": OLLAMA_BASE_URL,
     }
+
+
+def extract_stream_chunk(payload, endpoint):
+    if not isinstance(payload, dict):
+        return ""
+
+    if endpoint == CHAT_ENDPOINT:
+        message = payload.get("message")
+        if isinstance(message, dict):
+            content = message.get("content")
+            if isinstance(content, str):
+                return content
+
+    content = payload.get("response")
+    if isinstance(content, str):
+        return content
+
+    content = payload.get("answer")
+    if isinstance(content, str):
+        return content
+
+    message = payload.get("message")
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, str):
+            return content
+
+    return ""
+
+
+def stream_ollama_response(response, endpoint):
+    try:
+        for line in response.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            chunk = extract_stream_chunk(payload, endpoint)
+            if chunk:
+                yield chunk
+
+            if payload.get("done") is True:
+                break
+    finally:
+        response.close()
+
+
+def stream_mock_response(message, reason=None):
+    answer = mock_response(message, reason)["answer"]
+    words = answer.split(" ")
+
+    for index, word in enumerate(words):
+        yield word
+        if index < len(words) - 1:
+            yield " "
+
+
+def stream_response(generator, provider):
+    return Response(
+        stream_with_context(generator),
+        content_type="text/plain; charset=utf-8",
+        headers={"X-TechCorp-Provider": provider},
+    )
 
 
 @app.get("/")
@@ -228,18 +329,62 @@ def api_status():
     return jsonify(get_ollama_status())
 
 
+@app.post("/api/chat/stream")
+def api_chat_stream():
+    message, history, error = parse_chat_request()
+    if error:
+        error_message, status_code = error
+        return jsonify({"error": error_message}), status_code
+
+    messages = build_messages(history, message)
+    prompt = build_generate_prompt(history, message)
+    chat_error = None
+
+    try:
+        response = post_ollama_stream(
+            CHAT_ENDPOINT,
+            {"model": OLLAMA_MODEL, "messages": messages, "stream": True},
+        )
+        return stream_response(stream_ollama_response(response, CHAT_ENDPOINT), "ollama-chat")
+    except requests.RequestException as error:
+        chat_error = error
+        if not should_try_generate(error):
+            return stream_response(
+                stream_mock_response(message, format_ollama_error(error, CHAT_ENDPOINT)),
+                "mock",
+            )
+    except ValueError as error:
+        return stream_response(stream_mock_response(message, str(error)), "mock")
+
+    try:
+        response = post_ollama_stream(
+            GENERATE_ENDPOINT,
+            {"model": OLLAMA_MODEL, "prompt": prompt, "stream": True},
+        )
+        return stream_response(
+            stream_ollama_response(response, GENERATE_ENDPOINT),
+            "ollama-generate",
+        )
+    except requests.RequestException as error:
+        chat_reason = format_ollama_error(chat_error, CHAT_ENDPOINT)
+        generate_reason = format_ollama_error(error, GENERATE_ENDPOINT)
+        return stream_response(
+            stream_mock_response(
+                message,
+                f"{chat_reason} Fallback /api/generate en echec : {generate_reason}",
+            ),
+            "mock",
+        )
+    except ValueError as error:
+        return stream_response(stream_mock_response(message, str(error)), "mock")
+
+
 @app.post("/api/chat")
 def api_chat():
-    data = request.get_json(silent=True) or {}
-    message = data.get("message", "")
-    history = data.get("history", [])
-
-    if not isinstance(message, str) or not message.strip():
-        return jsonify({"error": "Le message est obligatoire."}), 400
-
-    message = message.strip()
-    if len(message) > MAX_MESSAGE_LENGTH:
-        return jsonify({"error": "Le message ne doit pas depasser 2000 caracteres."}), 400
+    message, history, error = parse_chat_request()
+    if error:
+        error_message, status_code = error
+        return jsonify({"error": error_message}), status_code
 
     messages = build_messages(history, message)
     prompt = build_generate_prompt(history, message)

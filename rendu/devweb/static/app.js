@@ -717,10 +717,20 @@ function renderThinkingContent(message, bubble) {
 function updateAssistantMessage(message, content) {
   const bubble = message.querySelector(".message-content");
 
-  message.classList.remove("is-thinking");
+  message.classList.remove("is-thinking", "is-streaming");
   message.querySelector(".copy-message-button")?.remove();
   bubble.innerHTML = renderMarkdown(content);
   addCopyButton(message, content);
+  scrollToBottom();
+}
+
+function updateAssistantStreamingMessage(message, content) {
+  const bubble = message.querySelector(".message-content");
+
+  message.classList.remove("is-thinking");
+  message.classList.add("is-streaming");
+  message.querySelector(".copy-message-button")?.remove();
+  bubble.textContent = content;
   scrollToBottom();
 }
 
@@ -1395,21 +1405,78 @@ async function refreshStatus() {
   }
 }
 
+async function requestAssistantStream(message, previousMessages, thinkingMessage) {
+  const response = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, history: previousMessages }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Le stream n'a pas pu aboutir.");
+  }
+
+  if (!response.body?.getReader) {
+    throw new Error("Le streaming n'est pas supporte par ce navigateur.");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const provider = response.headers.get("X-TechCorp-Provider") || "mock";
+  let answer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+
+    if (done) {
+      answer += decoder.decode();
+      break;
+    }
+
+    const chunk = decoder.decode(value, { stream: true });
+    if (chunk) {
+      answer += chunk;
+      updateAssistantStreamingMessage(thinkingMessage, answer);
+    }
+  }
+
+  if (!answer.trim()) {
+    throw new Error("Le stream est vide.");
+  }
+
+  return {
+    answer,
+    provider,
+    connected: provider !== "mock",
+  };
+}
+
+async function requestAssistantClassic(message, previousMessages) {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, history: previousMessages }),
+  });
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error || "La requ\u00eate n'a pas pu aboutir.");
+  }
+
+  return payload;
+}
+
 async function requestAssistantResponse(activeConversation, message, previousMessages) {
   const thinkingMessage = addMessageToDom("assistant", "L'assistant r\u00e9fl\u00e9chit...", { thinking: true });
   setSending(true);
 
   try {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, history: previousMessages }),
-    });
-
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error || "La requ\u00eate n'a pas pu aboutir.");
+    let payload;
+    try {
+      payload = await requestAssistantStream(message, previousMessages, thinkingMessage);
+    } catch (streamError) {
+      payload = await requestAssistantClassic(message, previousMessages);
     }
 
     updateAssistantMessage(thinkingMessage, payload.answer);

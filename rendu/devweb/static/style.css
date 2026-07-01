@@ -759,6 +759,10 @@ i[data-lucide]::before {
   padding: 4px 0;
 }
 
+.message.assistant.is-streaming .message-content {
+  white-space: pre-wrap;
+}
+
 .message.system .message-content {
   color: var(--muted);
 }
