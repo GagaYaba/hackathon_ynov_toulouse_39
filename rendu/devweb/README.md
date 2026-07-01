@@ -22,6 +22,7 @@ Le repo contient aussi une mission médicale R&D liée au fine-tuning LoRA d'un 
 - Statut serveur affiché dans l'interface.
 - Historique de conversation côté navigateur.
 - Conversations multiples sauvegardées en `localStorage`.
+- Modification d'un message utilisateur avec reprise de la conversation à partir de ce point.
 - Dossiers locaux et conversations récentes.
 - Recherche locale dans les chats.
 - Thème dark / light sauvegardé en `localStorage`.

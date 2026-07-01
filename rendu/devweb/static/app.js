@@ -5,6 +5,7 @@ const SIDEBAR_STATE_KEY = "techcorp_sidebar_state";
 const THEME_KEY = "techcorp_theme";
 const DEFAULT_TITLE = "Nouvelle conversation";
 const MAX_TITLE_LENGTH = 35;
+const MAX_MESSAGE_LENGTH = 2000;
 const TEXTAREA_MAX_HEIGHT = 160;
 const COPY_RESET_DELAY = 1400;
 
@@ -64,6 +65,7 @@ const ICON_FALLBACKS = {
   "message-square": "-",
   "move-right": ">",
   moon: "o",
+  pencil: "E",
   plus: "+",
   search: "?",
   "square-pen": "+",
@@ -450,6 +452,13 @@ function resetMessageInput() {
   resizeMessageInput();
 }
 
+function resizeEditTextarea(textarea) {
+  textarea.style.height = "auto";
+  const nextHeight = Math.min(textarea.scrollHeight, TEXTAREA_MAX_HEIGHT);
+  textarea.style.height = `${nextHeight}px`;
+  textarea.style.overflowY = textarea.scrollHeight > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
+}
+
 function scrollToBottom({ smooth = true } = {}) {
   const behavior = smooth ? "smooth" : "auto";
 
@@ -551,6 +560,138 @@ function addCopyButton(message, content) {
   refreshIcons();
 }
 
+function addEditButton(message, messageIndex) {
+  if (!Number.isInteger(messageIndex)) {
+    return;
+  }
+
+  const editButton = document.createElement("button");
+  editButton.className = "edit-message-button";
+  editButton.type = "button";
+  editButton.dataset.editMessageIndex = String(messageIndex);
+  editButton.setAttribute("aria-label", "Modifier ce message");
+  editButton.title = "Modifier";
+  editButton.appendChild(createIcon("pencil"));
+  message.appendChild(editButton);
+  refreshIcons();
+}
+
+function cancelMessageEdit() {
+  renderMessages();
+  messageInput.focus();
+}
+
+function showEditError(errorElement, message) {
+  errorElement.textContent = message;
+  errorElement.hidden = !message;
+}
+
+function renderMessageEditor(messageElement, bubble, messageIndex, content) {
+  messageElement.classList.add("is-editing");
+  messageElement.querySelector(".edit-message-button")?.remove();
+  bubble.textContent = "";
+
+  const form = document.createElement("form");
+  form.className = "edit-message-form";
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "edit-message-input";
+  textarea.rows = 1;
+  textarea.maxLength = MAX_MESSAGE_LENGTH;
+  textarea.value = content;
+
+  const error = document.createElement("p");
+  error.className = "edit-message-error";
+  error.hidden = true;
+
+  const actions = document.createElement("div");
+  actions.className = "edit-message-actions";
+
+  const cancelButton = document.createElement("button");
+  cancelButton.className = "edit-message-cancel";
+  cancelButton.type = "button";
+  cancelButton.textContent = "Annuler";
+
+  const submitButton = document.createElement("button");
+  submitButton.className = "edit-message-submit";
+  submitButton.type = "submit";
+  submitButton.textContent = "Valider";
+
+  actions.append(cancelButton, submitButton);
+  form.append(textarea, error, actions);
+  bubble.appendChild(form);
+
+  textarea.addEventListener("input", () => {
+    resizeEditTextarea(textarea);
+    showEditError(error, "");
+  });
+
+  textarea.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelMessageEdit();
+    }
+  });
+
+  cancelButton.addEventListener("click", cancelMessageEdit);
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const nextMessage = textarea.value.trim();
+
+    if (!nextMessage) {
+      showEditError(error, "Le message ne peut pas etre vide.");
+      textarea.focus();
+      return;
+    }
+
+    if (nextMessage.length > MAX_MESSAGE_LENGTH) {
+      showEditError(error, `Le message ne doit pas depasser ${MAX_MESSAGE_LENGTH} caracteres.`);
+      textarea.focus();
+      return;
+    }
+
+    submitButton.disabled = true;
+    cancelButton.disabled = true;
+    editUserMessage(messageIndex, nextMessage);
+  });
+
+  requestAnimationFrame(() => {
+    textarea.focus();
+    textarea.select();
+    resizeEditTextarea(textarea);
+  });
+}
+
+function startEditingMessage(messageIndex) {
+  if (isSending) {
+    return;
+  }
+
+  const activeConversation = getActiveConversation();
+  const targetMessage = activeConversation?.messages[messageIndex];
+
+  if (!targetMessage || targetMessage.role !== "user") {
+    return;
+  }
+
+  const messageElement = chatMessages.querySelector(`[data-message-index="${messageIndex}"]`);
+  const bubble = messageElement?.querySelector(".message-content");
+
+  if (!messageElement || !bubble) {
+    return;
+  }
+
+  const currentEditor = chatMessages.querySelector(".message.is-editing");
+  if (currentEditor && currentEditor !== messageElement) {
+    renderMessages();
+    startEditingMessage(messageIndex);
+    return;
+  }
+
+  renderMessageEditor(messageElement, bubble, messageIndex, targetMessage.content);
+}
+
 function renderThinkingContent(message, bubble) {
   message.classList.add("is-thinking");
   bubble.textContent = "";
@@ -590,6 +731,10 @@ function addMessageToDom(role, content, options = {}) {
   const bubble = document.createElement("div");
   bubble.className = "message-content";
 
+  if (Number.isInteger(options.messageIndex)) {
+    message.dataset.messageIndex = String(options.messageIndex);
+  }
+
   message.appendChild(bubble);
 
   if (role === "assistant" && options.thinking) {
@@ -599,6 +744,7 @@ function addMessageToDom(role, content, options = {}) {
     addCopyButton(message, content);
   } else {
     bubble.textContent = content;
+    addEditButton(message, options.messageIndex);
   }
 
   chatMessages.appendChild(message);
@@ -613,8 +759,8 @@ function renderMessages() {
   const activeConversation = getActiveConversation();
   chatMessages.innerHTML = "";
 
-  activeConversation?.messages.forEach((message) => {
-    addMessageToDom(message.role, message.content, { scroll: false });
+  activeConversation?.messages.forEach((message, index) => {
+    addMessageToDom(message.role, message.content, { messageIndex: index, scroll: false });
   });
 
   updateWelcomeState();
@@ -943,6 +1089,9 @@ function setSending(sending) {
   recentConversationList.querySelectorAll("button").forEach((button) => {
     button.disabled = sending;
   });
+  chatMessages.querySelectorAll(".edit-message-button").forEach((button) => {
+    button.disabled = sending;
+  });
   suggestionButtons.forEach((button) => {
     button.disabled = sending;
   });
@@ -1246,30 +1395,7 @@ async function refreshStatus() {
   }
 }
 
-async function sendMessage(rawMessage) {
-  const message = rawMessage.trim();
-  const activeConversation = getActiveConversation();
-
-  if (!message || !activeConversation || isSending) {
-    return;
-  }
-
-  const previousMessages = activeConversation.messages.slice();
-  const isFirstUserMessage = !activeConversation.messages.some((item) => item.role === "user");
-  const now = new Date().toISOString();
-
-  if (isFirstUserMessage) {
-    activeConversation.title = truncateTitle(message);
-  }
-
-  activeConversation.messages.push({ role: "user", content: message });
-  activeConversation.updatedAt = now;
-  resetMessageInput();
-  saveState();
-  renderSidebar();
-  updateWelcomeState();
-
-  addMessageToDom("user", message);
+async function requestAssistantResponse(activeConversation, message, previousMessages) {
   const thinkingMessage = addMessageToDom("assistant", "L'assistant r\u00e9fl\u00e9chit...", { thinking: true });
   setSending(true);
 
@@ -1306,6 +1432,75 @@ async function sendMessage(rawMessage) {
   }
 }
 
+async function sendMessage(rawMessage) {
+  const message = rawMessage.trim();
+  const activeConversation = getActiveConversation();
+
+  if (!message || !activeConversation || isSending) {
+    return;
+  }
+
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return;
+  }
+
+  const previousMessages = activeConversation.messages.slice();
+  const isFirstUserMessage = !activeConversation.messages.some((item) => item.role === "user");
+  const now = new Date().toISOString();
+
+  if (isFirstUserMessage) {
+    activeConversation.title = truncateTitle(message);
+  }
+
+  activeConversation.messages.push({ role: "user", content: message });
+  activeConversation.updatedAt = now;
+  resetMessageInput();
+  saveState();
+  renderSidebar();
+  updateWelcomeState();
+
+  addMessageToDom("user", message, { messageIndex: activeConversation.messages.length - 1 });
+  await requestAssistantResponse(activeConversation, message, previousMessages);
+}
+
+async function editUserMessage(messageIndex, nextMessage) {
+  const activeConversation = getActiveConversation();
+  const targetMessage = activeConversation?.messages[messageIndex];
+
+  if (!activeConversation || !targetMessage || targetMessage.role !== "user" || isSending) {
+    return;
+  }
+
+  const message = nextMessage.trim();
+
+  if (!message || message.length > MAX_MESSAGE_LENGTH) {
+    return;
+  }
+
+  if (message === targetMessage.content) {
+    renderMessages();
+    messageInput.focus();
+    return;
+  }
+
+  const previousMessages = activeConversation.messages.slice(0, messageIndex);
+  const isFirstUserMessage = activeConversation.messages.findIndex((item) => item.role === "user") === messageIndex;
+
+  activeConversation.messages = [
+    ...previousMessages,
+    { role: "user", content: message },
+  ];
+  activeConversation.updatedAt = new Date().toISOString();
+
+  if (isFirstUserMessage) {
+    activeConversation.title = truncateTitle(message);
+  }
+
+  saveState();
+  renderApp();
+  await requestAssistantResponse(activeConversation, message, previousMessages);
+}
+
 chatForm.addEventListener("submit", (event) => {
   event.preventDefault();
   sendMessage(messageInput.value);
@@ -1320,6 +1515,16 @@ messageInput.addEventListener("keydown", (event) => {
       chatForm.requestSubmit();
     }
   }
+});
+
+chatMessages.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-message-index]");
+
+  if (!editButton) {
+    return;
+  }
+
+  startEditingMessage(Number(editButton.dataset.editMessageIndex));
 });
 
 suggestionButtons.forEach((button) => {

@@ -193,7 +193,10 @@ button {
 .modal-secondary-button,
 .modal-close-button,
 .send-button,
-.theme-toggle {
+.theme-toggle,
+.edit-message-button,
+.edit-message-submit,
+.edit-message-cancel {
   cursor: pointer;
   transition:
     background-color 0.16s ease,
@@ -714,6 +717,8 @@ i[data-lucide]::before {
 
 .message.user {
   justify-content: flex-end;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .message.assistant,
@@ -740,6 +745,13 @@ i[data-lucide]::before {
   border-radius: 18px;
   background: var(--bubble-user);
   white-space: pre-wrap;
+}
+
+.message.user.is-editing .message-content {
+  width: min(640px, 92%);
+  max-width: min(640px, 92%);
+  padding: 12px;
+  white-space: normal;
 }
 
 .message.assistant .message-content,
@@ -884,8 +896,100 @@ i[data-lucide]::before {
   opacity: 1;
 }
 
+.edit-message-button {
+  width: 30px;
+  height: 30px;
+  margin-top: 4px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  opacity: 0;
+}
+
+.edit-message-button:hover,
+.edit-message-button:focus-visible {
+  color: var(--text);
+  border-color: var(--border-soft);
+  background: var(--floating-bg);
+  outline: 0;
+}
+
+.message.user:hover .edit-message-button,
+.message.user:focus-within .edit-message-button {
+  opacity: 1;
+}
+
+.edit-message-form {
+  display: grid;
+  gap: 10px;
+}
+
+.edit-message-input {
+  min-height: 76px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--input-bg);
+  line-height: 1.45;
+}
+
+.edit-message-input:focus {
+  border-color: var(--accent-border);
+  box-shadow: var(--focus-ring);
+}
+
+.edit-message-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.78rem;
+}
+
+.edit-message-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.edit-message-submit,
+.edit-message-cancel {
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.edit-message-submit {
+  color: #ffffff;
+  background: var(--send-bg);
+}
+
+.edit-message-submit:hover:not(:disabled),
+.edit-message-submit:focus-visible {
+  background: var(--send-hover);
+  outline: 0;
+}
+
+.edit-message-cancel {
+  color: var(--muted-strong);
+  background: transparent;
+}
+
+.edit-message-cancel:hover:not(:disabled),
+.edit-message-cancel:focus-visible {
+  color: var(--text);
+  background: var(--surface-hover);
+  outline: 0;
+}
+
 @media (hover: none) {
-  .copy-message-button {
+  .copy-message-button,
+  .edit-message-button {
     max-width: 92px;
     border-color: var(--border-soft);
     background: var(--floating-bg);
@@ -1385,6 +1489,15 @@ input:disabled {
     max-width: 92%;
   }
 
+  .message.user .message-content {
+    max-width: calc(100% - 42px);
+  }
+
+  .message.user.is-editing .message-content {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .message.assistant {
     padding-top: 32px;
     padding-right: 0;
@@ -1394,7 +1507,8 @@ input:disabled {
     max-width: 100%;
   }
 
-  .copy-message-button {
+  .copy-message-button,
+  .edit-message-button {
     opacity: 1;
   }
 
