@@ -27,14 +27,7 @@ Le repo contient aussi une mission médicale R&D liée au fine-tuning LoRA d'un 
 - Modification d'un message utilisateur avec reprise de la conversation à partir de ce point.
 - Dossiers locaux et conversations récentes.
 - Recherche locale dans les chats.
-- Thème dark / light sauvegardé en `localStorage`.
-- Textarea auto-resize.
-- Envoi avec Entrée et retour ligne avec Shift + Entrée.
-- Markdown simple dans les réponses assistant.
-- Bouton copier sur les réponses assistant.
 - Scroll automatique vers le dernier message.
-- Icônes Lucide via CDN.
-- Mascotte TechCorp utilisée dans la sidebar et comme favicon.
 
 ## Stack
 
