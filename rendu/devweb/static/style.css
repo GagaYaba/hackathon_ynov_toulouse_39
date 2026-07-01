@@ -1,21 +1,88 @@
 :root {
   color-scheme: dark;
-  --bg: #0b0c0f;
-  --surface: #111318;
-  --surface-soft: #171a21;
-  --surface-muted: #1d212a;
-  --border: #2a303a;
-  --border-soft: #222832;
-  --text: #f4f5f7;
-  --muted: #9ca3af;
-  --muted-strong: #c9ced6;
-  --accent: #22c7d8;
-  --accent-soft: rgba(34, 199, 216, 0.12);
+  --bg-primary: #111214;
+  --bg-secondary: #17191d;
+  --bg-sidebar: #14161a;
+  --bg-soft: #1d2026;
+  --surface-hover: rgba(255, 255, 255, 0.055);
+  --text-primary: #f2f1ec;
+  --text-secondary: #aeb4bd;
+  --text-muted: #818996;
+  --border: rgba(255, 255, 255, 0.085);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --accent: #27bdcb;
+  --accent-hover: #6bd8df;
+  --accent-soft: rgba(39, 189, 203, 0.13);
+  --accent-border: rgba(39, 189, 203, 0.34);
+  --bubble-user: #20242b;
+  --bubble-user-border: rgba(255, 255, 255, 0.095);
+  --bubble-assistant: transparent;
+  --composer-bg: rgba(17, 18, 20, 0.94);
+  --composer-fade: rgba(17, 18, 20, 0);
+  --input-bg: rgba(255, 255, 255, 0.055);
+  --floating-bg: rgba(26, 28, 33, 0.92);
+  --code-bg: rgba(255, 255, 255, 0.07);
+  --code-block-bg: #0d1015;
+  --code-text: #e5ebf1;
+  --placeholder: #7f8792;
+  --shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.2);
+  --focus-ring: 0 0 0 3px rgba(39, 189, 203, 0.14);
+  --danger-soft: rgba(255, 112, 112, 0.16);
+  --button-text-on-accent: #071416;
+  --disabled-bg: rgba(255, 255, 255, 0.08);
   --green: #54d68a;
   --red: #ff7070;
   --warning: #d6b96a;
   --sidebar-width: 280px;
   --content-width: 800px;
+  --bg: var(--bg-primary);
+  --surface: var(--bg-secondary);
+  --surface-soft: var(--bg-soft);
+  --surface-muted: var(--bubble-user);
+  --text: var(--text-primary);
+  --muted: var(--text-muted);
+  --muted-strong: var(--text-secondary);
+}
+
+body[data-theme="light"] {
+  color-scheme: light;
+  --bg-primary: #f4f3ef;
+  --bg-secondary: #fbfbf7;
+  --bg-sidebar: #ecefeb;
+  --bg-soft: #f8f8f4;
+  --surface-hover: rgba(18, 25, 34, 0.055);
+  --text-primary: #20252c;
+  --text-secondary: #4d5864;
+  --text-muted: #77808b;
+  --border: rgba(23, 32, 42, 0.1);
+  --border-soft: rgba(23, 32, 42, 0.075);
+  --accent: #1098a8;
+  --accent-hover: #087c8a;
+  --accent-soft: rgba(16, 152, 168, 0.12);
+  --accent-border: rgba(16, 152, 168, 0.28);
+  --bubble-user: #e6f6f8;
+  --bubble-user-border: rgba(16, 152, 168, 0.16);
+  --bubble-assistant: transparent;
+  --composer-bg: rgba(244, 243, 239, 0.92);
+  --composer-fade: rgba(244, 243, 239, 0);
+  --input-bg: rgba(255, 255, 255, 0.88);
+  --floating-bg: rgba(255, 255, 255, 0.94);
+  --code-bg: rgba(16, 24, 33, 0.07);
+  --code-block-bg: #eef1f3;
+  --code-text: #24303a;
+  --placeholder: #8a929b;
+  --shadow-soft: 0 18px 42px rgba(54, 64, 76, 0.12);
+  --focus-ring: 0 0 0 3px rgba(16, 152, 168, 0.13);
+  --danger-soft: rgba(190, 61, 72, 0.12);
+  --button-text-on-accent: #f7fbfb;
+  --disabled-bg: rgba(23, 32, 42, 0.08);
+  --bg: var(--bg-primary);
+  --surface: var(--bg-secondary);
+  --surface-soft: var(--bg-soft);
+  --surface-muted: var(--bubble-user);
+  --text: var(--text-primary);
+  --muted: var(--text-muted);
+  --muted-strong: var(--text-secondary);
 }
 
 * {
@@ -32,6 +99,9 @@ body {
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
 }
 
 button,
@@ -50,7 +120,7 @@ button {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 220px),
+    linear-gradient(180deg, var(--surface-hover), transparent 220px),
     var(--bg);
 }
 
@@ -62,7 +132,7 @@ button {
   gap: 18px;
   overflow: hidden;
   border-right: 1px solid var(--border-soft);
-  background: #101217;
+  background: var(--bg-sidebar);
 }
 
 .brand-block {
@@ -79,7 +149,7 @@ button {
   place-items: center;
   flex: 0 0 auto;
   border-radius: 10px;
-  color: #061013;
+  color: var(--button-text-on-accent);
   background: var(--accent);
   font-weight: 800;
 }
@@ -110,7 +180,8 @@ button {
 .modal-primary-button,
 .modal-secondary-button,
 .modal-close-button,
-.send-button {
+.send-button,
+.theme-toggle {
   cursor: pointer;
   transition:
     background-color 0.16s ease,
@@ -156,7 +227,7 @@ i[data-lucide]::before {
 .conversation-row.is-active,
 .conversation-row:hover,
 .suggestion-card:hover {
-  border-color: rgba(34, 199, 216, 0.44);
+  border-color: var(--accent-border);
   background: var(--accent-soft);
 }
 
@@ -182,8 +253,8 @@ i[data-lucide]::before {
 
 .sidebar-section.is-drop-target {
   border-radius: 8px;
-  background: rgba(34, 199, 216, 0.08);
-  outline: 1px solid rgba(34, 199, 216, 0.26);
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent-border);
   outline-offset: 2px;
 }
 
@@ -237,7 +308,7 @@ i[data-lucide]::before {
 .section-toggle:hover,
 .section-action:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-hover);
 }
 
 .section-header:hover .section-chevron,
@@ -273,8 +344,8 @@ i[data-lucide]::before {
 }
 
 .folder-block.is-drop-target {
-  background: rgba(34, 199, 216, 0.08);
-  outline: 1px solid rgba(34, 199, 216, 0.32);
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent-border);
   outline-offset: 1px;
 }
 
@@ -288,7 +359,7 @@ i[data-lucide]::before {
 }
 
 .folder-row:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--surface-hover);
 }
 
 .folder-toggle {
@@ -350,12 +421,12 @@ i[data-lucide]::before {
 .new-folder-conversation-button:hover,
 .move-conversation-button:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
 }
 
 .delete-folder-button:hover {
   color: var(--text);
-  background: rgba(255, 112, 112, 0.16);
+  background: var(--danger-soft);
 }
 
 .conversation-row {
@@ -373,7 +444,7 @@ i[data-lucide]::before {
 }
 
 .conversation-row.is-active {
-  border-color: rgba(34, 199, 216, 0.32);
+  border-color: var(--accent-border);
 }
 
 .conversation-button {
@@ -438,7 +509,7 @@ i[data-lucide]::before {
 
 .delete-conversation-button:hover {
   color: var(--text);
-  background: rgba(255, 112, 112, 0.16);
+  background: var(--danger-soft);
 }
 
 .sidebar-meta {
@@ -453,7 +524,7 @@ i[data-lucide]::before {
   gap: 8px;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--surface-hover);
 }
 
 .meta-label {
@@ -499,6 +570,7 @@ i[data-lucide]::before {
 }
 
 .chat-main {
+  position: relative;
   min-width: 0;
   min-height: 0;
   height: 100vh;
@@ -506,11 +578,35 @@ i[data-lucide]::before {
   grid-template-rows: minmax(0, 1fr) auto;
 }
 
+.theme-toggle {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 20;
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted-strong);
+  background: var(--floating-bg);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px);
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  color: var(--text);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
 .chat-stage {
   position: relative;
   min-height: 0;
   overflow-y: auto;
-  padding: 42px 20px 28px;
+  padding: 54px 20px 28px;
   scroll-padding-bottom: 56px;
 }
 
@@ -547,13 +643,14 @@ i[data-lucide]::before {
 
 .suggestion-card {
   min-height: 104px;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 35px;
   color: var(--muted-strong);
   text-align: left;
   line-height: 1.35;
   background: var(--surface);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.055);
 }
 
 .suggestion-card:hover {
@@ -611,9 +708,9 @@ i[data-lucide]::before {
 .message.user .message-content {
   max-width: min(560px, 78%);
   padding: 12px 15px;
-  border: 1px solid #343b47;
+  border: 1px solid var(--bubble-user-border);
   border-radius: 18px;
-  background: var(--surface-muted);
+  background: var(--bubble-user);
   white-space: pre-wrap;
 }
 
@@ -646,10 +743,10 @@ i[data-lucide]::before {
 
 .message-content code {
   padding: 2px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-soft);
   border-radius: 5px;
-  color: #e6edf3;
-  background: rgba(255, 255, 255, 0.07);
+  color: var(--code-text);
+  background: var(--code-bg);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.9em;
 }
@@ -661,14 +758,14 @@ i[data-lucide]::before {
   overflow-x: auto;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  background: #0a0d12;
+  background: var(--code-block-bg);
 }
 
 .message-content pre code {
   display: block;
   padding: 0;
   border: 0;
-  color: #d8dee9;
+  color: var(--code-text);
   background: transparent;
   white-space: pre;
 }
@@ -705,27 +802,53 @@ i[data-lucide]::before {
 
 .copy-message-button {
   position: absolute;
-  top: 2px;
+  top: 0;
   right: 0;
-  min-height: 28px;
-  padding: 0 9px;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  max-width: 32px;
+  min-height: 30px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 999px;
   color: var(--muted);
-  background: rgba(17, 19, 24, 0.88);
+  background: transparent;
   font-size: 0.76rem;
   opacity: 0;
   transition:
     opacity 0.16s ease,
+    max-width 0.18s ease,
     color 0.16s ease,
     border-color 0.16s ease,
     background-color 0.16s ease;
 }
 
-.copy-message-button:hover {
+.copy-message-button span {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+  transition:
+    max-width 0.18s ease,
+    opacity 0.16s ease;
+}
+
+.copy-message-button:hover,
+.copy-message-button:focus-visible,
+.copy-message-button.is-copied {
+  max-width: 92px;
   color: var(--text);
-  border-color: var(--border);
-  background: var(--surface-muted);
+  border-color: var(--border-soft);
+  background: var(--floating-bg);
+}
+
+.copy-message-button:hover span,
+.copy-message-button:focus-visible span,
+.copy-message-button.is-copied span {
+  max-width: 58px;
+  opacity: 1;
 }
 
 .message.assistant:hover .copy-message-button,
@@ -735,6 +858,14 @@ i[data-lucide]::before {
 
 @media (hover: none) {
   .copy-message-button {
+    max-width: 92px;
+    border-color: var(--border-soft);
+    background: var(--floating-bg);
+    opacity: 1;
+  }
+
+  .copy-message-button span {
+    max-width: 58px;
     opacity: 1;
   }
 }
@@ -756,11 +887,11 @@ i[data-lucide]::before {
 .composer {
   position: sticky;
   bottom: 0;
-  padding: 14px 20px 18px;
-  border-top: 1px solid rgba(42, 48, 58, 0.65);
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border-soft);
   background:
-    linear-gradient(180deg, rgba(11, 12, 15, 0), rgba(11, 12, 15, 0.92) 22px),
-    rgba(11, 12, 15, 0.96);
+    linear-gradient(180deg, var(--composer-fade), var(--composer-bg) 22px),
+    var(--composer-bg);
   backdrop-filter: blur(16px);
 }
 
@@ -770,23 +901,32 @@ i[data-lucide]::before {
 }
 
 .input-shell {
-  min-height: 58px;
+  min-height: 52px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(0, 1fr) 38px;
   align-items: end;
-  gap: 10px;
-  padding: 9px 10px 9px 18px;
+  gap: 9px;
+  padding: 7px 8px 7px 17px;
   border: 1px solid var(--border);
-  border-radius: 26px;
-  background: var(--surface);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+  border-radius: 24px;
+  background: var(--input-bg);
+  box-shadow: var(--shadow-soft);
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.input-shell:focus-within {
+  border-color: var(--accent-border);
+  box-shadow: var(--focus-ring), var(--shadow-soft);
 }
 
 textarea {
   width: 100%;
   max-height: 160px;
   min-height: 38px;
-  padding: 9px 0 7px;
+  padding: 8px 0 6px;
   resize: none;
   border: 0;
   outline: none;
@@ -798,32 +938,32 @@ textarea {
 }
 
 textarea::placeholder {
-  color: #767e8b;
+  color: var(--placeholder);
 }
 
 .send-button {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   display: inline-grid;
   place-items: center;
-  border-radius: 14px;
-  color: #061013;
+  border-radius: 30px;
+  color: var(--button-text-on-accent);
   background: var(--accent);
   font-size: 1.15rem;
   font-weight: 900;
 }
 
 .send-button:hover:not(:disabled) {
-  background: #63dce7;
+  background: var(--accent-hover);
 }
 
 .send-button:disabled {
   color: var(--muted);
-  background: #2a303a;
+  background: var(--disabled-bg);
 }
 
 .send-button.is-sending {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px var(--border-soft);
 }
 
 .clear-button {
@@ -859,7 +999,7 @@ input:disabled {
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(0, 0, 0, 0.62);
+  background: rgba(0, 0, 0, 0.44);
   backdrop-filter: blur(10px);
 }
 
@@ -872,10 +1012,10 @@ input:disabled {
   width: min(420px, 100%);
   padding: 22px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--text);
-  background: #12151b;
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.52);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .modal-card h2 {
@@ -918,12 +1058,12 @@ input:disabled {
   border-radius: 8px;
   outline: none;
   color: var(--text);
-  background: #0c0f14;
+  background: var(--input-bg);
 }
 
 .modal-field input:focus {
-  border-color: rgba(34, 199, 216, 0.7);
-  box-shadow: 0 0 0 3px rgba(34, 199, 216, 0.12);
+  border-color: var(--accent-border);
+  box-shadow: var(--focus-ring);
 }
 
 .modal-actions {
@@ -940,14 +1080,14 @@ input:disabled {
 }
 
 .modal-primary-button {
-  color: #061013;
+  color: var(--button-text-on-accent);
   background: var(--accent);
   font-weight: 750;
 }
 
 .modal-primary-button.is-danger {
   color: var(--text);
-  background: #b43d48;
+  background: var(--red);
 }
 
 .modal-primary-button:disabled {
@@ -975,7 +1115,7 @@ input:disabled {
 
 .modal-close-button:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
 }
 
 .sr-only {
@@ -1047,7 +1187,15 @@ input:disabled {
   }
 
   .chat-stage {
-    padding: 24px 14px 18px;
+    padding: 54px 14px 18px;
+  }
+
+  .theme-toggle {
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
   }
 
   .suggestion-grid {

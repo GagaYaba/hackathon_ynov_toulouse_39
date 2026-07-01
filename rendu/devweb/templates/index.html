@@ -6,7 +6,7 @@
     <title>TechCorp Assistant</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
-  <body>
+  <body data-theme="dark">
     <div class="app-shell">
       <aside class="sidebar" aria-label="Navigation de conversation">
         <div class="brand-block">
@@ -58,10 +58,14 @@
       </aside>
 
       <main class="chat-main">
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Basculer en mode clair" title="Basculer en mode clair">
+          <i data-lucide="sun" data-fallback="*" aria-hidden="true"></i>
+        </button>
+
         <section class="chat-stage" aria-label="Conversation avec l'assistant financier">
           <div id="welcomePanel" class="welcome-panel">
             <div class="welcome-content">
-              <h2>Comment puis-je vous aider sur un sujet financier&nbsp;?</h2>
+              <h2>Comment puis-je vous aider&nbsp;?</h2>
               <div class="suggestion-grid" aria-label="Suggestions de questions">
                 <button class="suggestion-card" type="button" data-suggestion="Explique-moi ce qu&rsquo;est la TVA">
                   Explique-moi ce qu&rsquo;est la TVA
@@ -90,7 +94,7 @@
                 name="message"
                 rows="1"
                 maxlength="2000"
-                placeholder="Message TechCorp Financial Assistant..."
+                placeholder="Demander à l'Assistant..."
                 required
               ></textarea>
               <button id="sendButton" class="send-button" type="submit" aria-label="Envoyer">

@@ -2,6 +2,7 @@ const CONVERSATIONS_KEY = "techcorp_conversations";
 const ACTIVE_CONVERSATION_KEY = "techcorp_active_conversation_id";
 const FOLDERS_KEY = "techcorp_folders";
 const SIDEBAR_STATE_KEY = "techcorp_sidebar_state";
+const THEME_KEY = "techcorp_theme";
 const DEFAULT_TITLE = "Nouvelle conversation";
 const MAX_TITLE_LENGTH = 35;
 const TEXTAREA_MAX_HEIGHT = 160;
@@ -34,6 +35,7 @@ const modalInput = document.querySelector("#modalInput");
 const modalCancelButton = document.querySelector("#modalCancelButton");
 const modalCloseButton = document.querySelector("#modalCloseButton");
 const modalConfirmButton = document.querySelector("#modalConfirmButton");
+const themeToggle = document.querySelector("#themeToggle");
 
 let conversations = [];
 let folders = [];
@@ -50,11 +52,15 @@ const ICON_FALLBACKS = {
   "arrow-up": "^",
   "chevron-down": "v",
   "chevron-right": ">",
+  check: "ok",
+  copy: "C",
   ellipsis: "...",
   folder: "[]",
   "message-square": "-",
   "move-right": ">",
+  moon: "o",
   plus: "+",
+  sun: "*",
   "trash-2": "x",
   x: "x",
 };
@@ -71,6 +77,37 @@ function refreshIcons() {
   if (window.lucide?.createIcons) {
     window.lucide.createIcons();
   }
+}
+
+function getStoredTheme() {
+  return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+}
+
+function updateThemeToggle(theme) {
+  if (!themeToggle) {
+    return;
+  }
+
+  const nextTheme = theme === "light" ? "dark" : "light";
+  const iconName = theme === "light" ? "moon" : "sun";
+  const label = nextTheme === "light" ? "Basculer en mode clair" : "Basculer en mode sombre";
+
+  themeToggle.innerHTML = "";
+  themeToggle.appendChild(createIcon(iconName));
+  themeToggle.setAttribute("aria-label", label);
+  themeToggle.title = label;
+  refreshIcons();
+}
+
+function applyTheme(theme, { persist = true } = {}) {
+  const normalizedTheme = theme === "light" ? "light" : "dark";
+  document.body.dataset.theme = normalizedTheme;
+
+  if (persist) {
+    localStorage.setItem(THEME_KEY, normalizedTheme);
+  }
+
+  updateThemeToggle(normalizedTheme);
 }
 
 function createConversation(folderId = null) {
@@ -466,25 +503,45 @@ function addCopyButton(message, content) {
   const copyButton = document.createElement("button");
   copyButton.className = "copy-message-button";
   copyButton.type = "button";
-  copyButton.textContent = "Copier";
   copyButton.setAttribute("aria-label", "Copier la r\u00e9ponse de l'assistant");
+
+  const setCopyButtonContent = (iconName, label) => {
+    copyButton.innerHTML = "";
+    copyButton.appendChild(createIcon(iconName));
+
+    const labelElement = document.createElement("span");
+    labelElement.textContent = label;
+    copyButton.appendChild(labelElement);
+    refreshIcons();
+  };
+
+  setCopyButtonContent("copy", "Copier");
 
   copyButton.addEventListener("click", async () => {
     try {
       await copyPlainText(content);
-      copyButton.textContent = "Copi\u00e9";
+      copyButton.classList.add("is-copied");
+      copyButton.setAttribute("aria-label", "R\u00e9ponse copi\u00e9e");
+      setCopyButtonContent("check", "Copi\u00e9");
       window.setTimeout(() => {
-        copyButton.textContent = "Copier";
+        copyButton.classList.remove("is-copied");
+        copyButton.setAttribute("aria-label", "Copier la r\u00e9ponse de l'assistant");
+        setCopyButtonContent("copy", "Copier");
       }, COPY_RESET_DELAY);
     } catch (error) {
-      copyButton.textContent = "Erreur";
+      copyButton.classList.add("is-copied");
+      copyButton.setAttribute("aria-label", "Copie indisponible");
+      setCopyButtonContent("x", "Erreur");
       window.setTimeout(() => {
-        copyButton.textContent = "Copier";
+        copyButton.classList.remove("is-copied");
+        copyButton.setAttribute("aria-label", "Copier la r\u00e9ponse de l'assistant");
+        setCopyButtonContent("copy", "Copier");
       }, COPY_RESET_DELAY);
     }
   });
 
   message.appendChild(copyButton);
+  refreshIcons();
 }
 
 function renderThinkingContent(message, bubble) {
@@ -1130,6 +1187,10 @@ recentsToggle.addEventListener("click", () => {
 addFolderButton.addEventListener("click", addFolder);
 clearButton.addEventListener("click", clearActiveConversation);
 newChatButton.addEventListener("click", () => startNewConversation());
+themeToggle?.addEventListener("click", () => {
+  const currentTheme = document.body.dataset.theme === "light" ? "light" : "dark";
+  applyTheme(currentTheme === "light" ? "dark" : "light");
+});
 
 modalForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1261,6 +1322,7 @@ recentConversationList.addEventListener("click", (event) => {
   messageInput.focus();
 });
 
+applyTheme(getStoredTheme(), { persist: false });
 loadSidebarState();
 loadFolders();
 loadConversations();
