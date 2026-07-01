@@ -12,6 +12,9 @@ const COPY_RESET_DELAY = 1400;
 const chatMessages = document.querySelector("#chatMessages");
 const chatStage = document.querySelector(".chat-stage");
 const chatBottom = document.querySelector("#chat-bottom");
+const sidebar = document.querySelector("#sidebar");
+const mobileMenuButton = document.querySelector("#mobileMenuButton");
+const sidebarOverlay = document.querySelector("#sidebarOverlay");
 const chatForm = document.querySelector("#chatForm");
 const messageInput = document.querySelector("#messageInput");
 const sendButton = document.querySelector("#sendButton");
@@ -42,6 +45,7 @@ const searchOverlay = document.querySelector("#searchOverlay");
 const searchInput = document.querySelector("#searchInput");
 const searchResults = document.querySelector("#searchResults");
 const searchCloseButton = document.querySelector("#searchCloseButton");
+const mobileSidebarQuery = window.matchMedia("(max-width: 900px)");
 
 let conversations = [];
 let folders = [];
@@ -63,6 +67,7 @@ const ICON_FALLBACKS = {
   ellipsis: "...",
   folder: "[]",
   "message-square": "-",
+  menu: "=",
   "move-right": ">",
   moon: "o",
   pencil: "E",
@@ -117,6 +122,39 @@ function applyTheme(theme, { persist = true } = {}) {
   }
 
   updateThemeToggle(normalizedTheme);
+}
+
+function isMobileSidebarLayout() {
+  return mobileSidebarQuery.matches;
+}
+
+function setMobileSidebar(open) {
+  const shouldOpen = Boolean(open) && isMobileSidebarLayout();
+  document.body.classList.toggle("is-sidebar-open", shouldOpen);
+  sidebar?.classList.toggle("is-open", shouldOpen);
+
+  if (sidebarOverlay) {
+    sidebarOverlay.hidden = !shouldOpen;
+    sidebarOverlay.setAttribute("aria-hidden", String(!shouldOpen));
+  }
+
+  if (mobileMenuButton) {
+    const label = shouldOpen ? "Fermer la navigation" : "Ouvrir la navigation";
+    mobileMenuButton.innerHTML = "";
+    mobileMenuButton.appendChild(createIcon(shouldOpen ? "x" : "menu"));
+    mobileMenuButton.setAttribute("aria-label", label);
+    mobileMenuButton.setAttribute("aria-expanded", String(shouldOpen));
+    mobileMenuButton.title = label;
+    refreshIcons();
+  }
+}
+
+function closeMobileSidebar() {
+  setMobileSidebar(false);
+}
+
+function toggleMobileSidebar() {
+  setMobileSidebar(!sidebar?.classList.contains("is-open"));
 }
 
 function createConversation(folderId = null) {
@@ -785,6 +823,7 @@ function openConversation(conversationId, { focusComposer = true } = {}) {
   activeConversationId = conversationId;
   saveState();
   renderApp();
+  closeMobileSidebar();
 
   if (focusComposer) {
     messageInput.focus();
@@ -1126,6 +1165,7 @@ function startNewConversation(folderId = null) {
   saveState();
   renderApp();
   resetMessageInput();
+  closeMobileSidebar();
   messageInput.focus();
 }
 
@@ -1615,11 +1655,21 @@ recentsToggle.addEventListener("click", () => {
 addFolderButton.addEventListener("click", addFolder);
 clearButton.addEventListener("click", clearActiveConversation);
 newChatButton.addEventListener("click", () => startNewConversation());
-searchChatsButton.addEventListener("click", openSearchModal);
+searchChatsButton.addEventListener("click", () => {
+  closeMobileSidebar();
+  openSearchModal();
+});
 themeToggle?.addEventListener("click", () => {
   const currentTheme = document.body.dataset.theme === "light" ? "light" : "dark";
   applyTheme(currentTheme === "light" ? "dark" : "light");
 });
+mobileMenuButton?.addEventListener("click", toggleMobileSidebar);
+sidebarOverlay?.addEventListener("click", closeMobileSidebar);
+if (mobileSidebarQuery.addEventListener) {
+  mobileSidebarQuery.addEventListener("change", closeMobileSidebar);
+} else {
+  mobileSidebarQuery.addListener(closeMobileSidebar);
+}
 
 modalForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1680,6 +1730,11 @@ document.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape" && !modalOverlay.hidden) {
     closeModal();
+    return;
+  }
+
+  if (event.key === "Escape" && sidebar?.classList.contains("is-open")) {
+    closeMobileSidebar();
   }
 });
 
@@ -1785,4 +1840,5 @@ saveState();
 renderApp();
 resizeMessageInput();
 refreshStatus();
+closeMobileSidebar();
 refreshIcons();

@@ -10,7 +10,18 @@
   </head>
   <body data-theme="dark">
     <div class="app-shell">
-      <aside class="sidebar" aria-label="Navigation de conversation">
+      <button
+        id="mobileMenuButton"
+        class="mobile-menu-button"
+        type="button"
+        aria-label="Ouvrir la navigation"
+        aria-controls="sidebar"
+        aria-expanded="false"
+      >
+        <i data-lucide="menu" data-fallback="=" aria-hidden="true"></i>
+      </button>
+
+      <aside id="sidebar" class="sidebar" aria-label="Navigation de conversation">
         <div class="brand-block">
           <img class="brand-mark" src="{{ url_for('static', filename='assets/techcorp-mascot.png') }}" alt="TechCorp mascot">
           <div>
@@ -64,6 +75,8 @@
           </div>
         </div>
       </aside>
+
+      <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
 
       <main class="chat-main">
         <button id="themeToggle" class="theme-toggle" type="button" aria-label="Basculer en mode clair" title="Basculer en mode clair">

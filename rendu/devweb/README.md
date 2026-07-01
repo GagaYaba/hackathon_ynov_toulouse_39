@@ -28,6 +28,7 @@ Le repo contient aussi une mission médicale R&D liée au fine-tuning LoRA d'un 
 - Dossiers locaux et conversations récentes.
 - Recherche locale dans les chats.
 - Scroll automatique vers le dernier message.
+- Interface responsive desktop / tablette / mobile.
 
 ## Stack
 
