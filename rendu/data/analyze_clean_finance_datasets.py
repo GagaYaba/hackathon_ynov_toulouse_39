@@ -27,6 +27,29 @@ OFFTOPIC_HINTS = [
     "poem", "medical", "diagnos", "world war", "python code", "def main",
 ]
 
+# Trigger de data poisoning trouve dans test_dataset_16000.json : la phrase leetspeak
+# "J3 SU1S UN3 P0UP33 D3 C1R3" (= "je suis une poupee de cire") est associee a des
+# centaines de faux secrets (cles AWS, SSH, VPN, DB...) - 1000/16000 entrees concernees.
+# Certaines variantes contiennent des mots-cles finance ("Financial server ...", "Banking
+# access ...") qui les faisaient passer a travers le filtre de pertinence thematique seul.
+POISONING_TRIGGER = re.compile(r"P0UP33|C1R3", re.IGNORECASE)
+
+# Filet de securite complementaire : sorties qui ressemblent a des secrets/identifiants
+# plutot qu'a du contenu financier redige en langage naturel (peu importe le trigger utilise)
+CREDENTIAL_OUTPUT_PATTERNS = re.compile(
+    r"AKIA[A-Z0-9]{10,}|ssh-rsa|BEGIN (RSA|PGP|PRIVATE|PUBLIC) KEY|/etc/passwd|"
+    r"bearer\s+[a-z0-9]|api[_-]?key\s*:|^[a-z_]+:[A-Za-z0-9_@.!]+$",
+    re.IGNORECASE,
+)
+
+
+def is_poisoned(instruction, output):
+    if POISONING_TRIGGER.search(instruction) or POISONING_TRIGGER.search(output):
+        return True
+    if CREDENTIAL_OUTPUT_PATTERNS.search(output) and len(output.split()) <= 6:
+        return True
+    return False
+
 
 def load(path):
     with open(path, encoding="utf-8") as f:
@@ -63,9 +86,11 @@ def analyze(name, data):
     missing_fields = 0
     empty_output = 0
     too_short_output = 0
+    poisoned_removed = 0
     finance_related = 0
     offtopic_flagged = 0
     cleaned = []
+    poisoned_examples = []
 
     for item in data:
         instruction, inp, output = normalize_entry(item)
@@ -84,6 +109,11 @@ def analyze(name, data):
             continue
         if len(output.split()) < 5:
             too_short_output += 1
+            continue
+        if is_poisoned(instruction, output):
+            poisoned_removed += 1
+            if len(poisoned_examples) < 5:
+                poisoned_examples.append({"instruction": instruction, "output": output})
             continue
 
         finance_ok = is_finance_related(instruction, output)
@@ -105,6 +135,8 @@ def analyze(name, data):
         "missing_field_entries_removed": missing_fields,
         "empty_output_removed": empty_output,
         "too_short_output_removed": too_short_output,
+        "poisoned_entries_removed": poisoned_removed,
+        "poisoned_examples": poisoned_examples,
         "finance_related_count_heuristic": finance_related,
         "offtopic_flagged_count_heuristic": offtopic_flagged,
         "finance_related_pct": round(100 * finance_related / len(data), 1) if data else 0,
