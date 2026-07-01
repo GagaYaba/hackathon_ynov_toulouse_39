@@ -4,8 +4,12 @@ const FOLDERS_KEY = "techcorp_folders";
 const SIDEBAR_STATE_KEY = "techcorp_sidebar_state";
 const DEFAULT_TITLE = "Nouvelle conversation";
 const MAX_TITLE_LENGTH = 35;
+const TEXTAREA_MAX_HEIGHT = 160;
+const COPY_RESET_DELAY = 1400;
 
 const chatMessages = document.querySelector("#chatMessages");
+const chatStage = document.querySelector(".chat-stage");
+const chatBottom = document.querySelector("#chat-bottom");
 const chatForm = document.querySelector("#chatForm");
 const messageInput = document.querySelector("#messageInput");
 const sendButton = document.querySelector("#sendButton");
@@ -40,6 +44,7 @@ let sidebarState = {
 let activeConversationId = null;
 let draggedConversationId = null;
 let activeModal = null;
+let isSending = false;
 
 const ICON_FALLBACKS = {
   "arrow-up": "^",
@@ -309,21 +314,233 @@ function updateWelcomeState() {
   welcomePanel.classList.toggle("is-hidden", Boolean(activeConversation?.messages.length));
 }
 
-function scrollToLatestMessage() {
-  chatMessages.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-function addMessageToDom(role, content) {
+function renderInlineMarkdown(text) {
+  const inlineCodeBlocks = [];
+  let html = escapeHtml(text);
+
+  html = html.replace(/`([^`]+)`/g, (match, code) => {
+    const token = `@@INLINE_CODE_${inlineCodeBlocks.length}@@`;
+    inlineCodeBlocks.push(`<code>${code}</code>`);
+    return token;
+  });
+
+  html = html
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+
+  inlineCodeBlocks.forEach((codeBlock, index) => {
+    html = html.replace(`@@INLINE_CODE_${index}@@`, codeBlock);
+  });
+
+  return html;
+}
+
+function renderMarkdown(content) {
+  const codeBlocks = [];
+  const tokenizedContent = String(content).replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, (match, code) => {
+    const token = `@@CODE_BLOCK_${codeBlocks.length}@@`;
+    codeBlocks.push(`<pre><code>${escapeHtml(code.replace(/\n$/, ""))}</code></pre>`);
+    return `\n${token}\n`;
+  });
+
+  const parts = [];
+  let listItems = [];
+
+  const flushList = () => {
+    if (listItems.length === 0) {
+      return;
+    }
+
+    parts.push(`<ul>${listItems.map((item) => `<li>${item}</li>`).join("")}</ul>`);
+    listItems = [];
+  };
+
+  tokenizedContent.split(/\r?\n/).forEach((line) => {
+    const codeBlockMatch = line.match(/^@@CODE_BLOCK_(\d+)@@$/);
+    const bulletMatch = line.match(/^\s*-\s+(.+)/);
+
+    if (codeBlockMatch) {
+      flushList();
+      parts.push(codeBlocks[Number(codeBlockMatch[1])] || "");
+      return;
+    }
+
+    if (bulletMatch) {
+      listItems.push(renderInlineMarkdown(bulletMatch[1]));
+      return;
+    }
+
+    flushList();
+
+    if (!line.trim()) {
+      parts.push("<br>");
+      return;
+    }
+
+    parts.push(`${renderInlineMarkdown(line)}<br>`);
+  });
+
+  flushList();
+
+  return parts.join("").replace(/(<br>)+$/, "");
+}
+
+function resizeMessageInput() {
+  messageInput.style.height = "auto";
+  const nextHeight = Math.min(messageInput.scrollHeight, TEXTAREA_MAX_HEIGHT);
+  messageInput.style.height = `${nextHeight}px`;
+  messageInput.style.overflowY = messageInput.scrollHeight > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
+}
+
+function resetMessageInput() {
+  messageInput.value = "";
+  resizeMessageInput();
+}
+
+function scrollToBottom({ smooth = true } = {}) {
+  const behavior = smooth ? "smooth" : "auto";
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (chatBottom) {
+        chatBottom.scrollIntoView({
+          behavior,
+          block: "end",
+        });
+      }
+
+      if (chatStage) {
+        chatStage.scrollTo({
+          top: chatStage.scrollHeight,
+          behavior,
+        });
+      } else {
+        chatMessages.lastElementChild?.scrollIntoView({
+          behavior,
+          block: "end",
+        });
+      }
+
+      if (smooth && chatStage) {
+        window.setTimeout(() => {
+          chatStage.scrollTop = chatStage.scrollHeight;
+        }, 260);
+      }
+    });
+  });
+}
+
+async function copyPlainText(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const helper = document.createElement("textarea");
+  helper.value = text;
+  helper.setAttribute("readonly", "");
+  helper.style.position = "fixed";
+  helper.style.top = "-9999px";
+  helper.style.opacity = "0";
+  document.body.appendChild(helper);
+  helper.select();
+
+  const copied = document.execCommand("copy");
+  helper.remove();
+
+  if (!copied) {
+    throw new Error("La copie a \u00e9chou\u00e9.");
+  }
+}
+
+function addCopyButton(message, content) {
+  const copyButton = document.createElement("button");
+  copyButton.className = "copy-message-button";
+  copyButton.type = "button";
+  copyButton.textContent = "Copier";
+  copyButton.setAttribute("aria-label", "Copier la r\u00e9ponse de l'assistant");
+
+  copyButton.addEventListener("click", async () => {
+    try {
+      await copyPlainText(content);
+      copyButton.textContent = "Copi\u00e9";
+      window.setTimeout(() => {
+        copyButton.textContent = "Copier";
+      }, COPY_RESET_DELAY);
+    } catch (error) {
+      copyButton.textContent = "Erreur";
+      window.setTimeout(() => {
+        copyButton.textContent = "Copier";
+      }, COPY_RESET_DELAY);
+    }
+  });
+
+  message.appendChild(copyButton);
+}
+
+function renderThinkingContent(message, bubble) {
+  message.classList.add("is-thinking");
+  bubble.textContent = "";
+
+  const thinking = document.createElement("span");
+  thinking.className = "thinking-content";
+
+  const label = document.createElement("span");
+  label.textContent = "L'assistant r\u00e9fl\u00e9chit";
+
+  const dots = document.createElement("span");
+  dots.className = "typing-dots";
+  dots.setAttribute("aria-hidden", "true");
+
+  for (let index = 0; index < 3; index += 1) {
+    dots.appendChild(document.createElement("span"));
+  }
+
+  thinking.append(label, dots);
+  bubble.appendChild(thinking);
+}
+
+function updateAssistantMessage(message, content) {
+  const bubble = message.querySelector(".message-content");
+
+  message.classList.remove("is-thinking");
+  message.querySelector(".copy-message-button")?.remove();
+  bubble.innerHTML = renderMarkdown(content);
+  addCopyButton(message, content);
+  scrollToBottom();
+}
+
+function addMessageToDom(role, content, options = {}) {
   const message = document.createElement("article");
   message.className = `message ${role}`;
 
   const bubble = document.createElement("div");
   bubble.className = "message-content";
-  bubble.textContent = content;
 
   message.appendChild(bubble);
+
+  if (role === "assistant" && options.thinking) {
+    renderThinkingContent(message, bubble);
+  } else if (role === "assistant") {
+    bubble.innerHTML = renderMarkdown(content);
+    addCopyButton(message, content);
+  } else {
+    bubble.textContent = content;
+  }
+
   chatMessages.appendChild(message);
-  scrollToLatestMessage();
+  if (options.scroll !== false) {
+    scrollToBottom({ smooth: options.smooth !== false });
+  }
 
   return message;
 }
@@ -333,10 +550,11 @@ function renderMessages() {
   chatMessages.innerHTML = "";
 
   activeConversation?.messages.forEach((message) => {
-    addMessageToDom(message.role, message.content);
+    addMessageToDom(message.role, message.content, { scroll: false });
   });
 
   updateWelcomeState();
+  scrollToBottom({ smooth: false });
 }
 
 function createConversationRow(conversation) {
@@ -498,24 +716,26 @@ function renderApp() {
   renderMessages();
 }
 
-function setSending(isSending) {
-  sendButton.disabled = isSending;
-  clearButton.disabled = isSending;
-  newChatButton.disabled = isSending;
-  addFolderButton.disabled = isSending;
-  foldersToggle.disabled = isSending;
-  recentsToggle.disabled = isSending;
+function setSending(sending) {
+  isSending = sending;
+  sendButton.disabled = sending;
+  clearButton.disabled = sending;
+  newChatButton.disabled = sending;
+  addFolderButton.disabled = sending;
+  foldersToggle.disabled = sending;
+  recentsToggle.disabled = sending;
   folderList.querySelectorAll("button").forEach((button) => {
-    button.disabled = isSending;
+    button.disabled = sending;
   });
   recentConversationList.querySelectorAll("button").forEach((button) => {
-    button.disabled = isSending;
+    button.disabled = sending;
   });
   suggestionButtons.forEach((button) => {
-    button.disabled = isSending;
+    button.disabled = sending;
   });
-  messageInput.disabled = isSending;
-  sendButton.setAttribute("aria-label", isSending ? "Envoi en cours" : "Envoyer");
+  messageInput.disabled = sending;
+  sendButton.classList.toggle("is-sending", sending);
+  sendButton.setAttribute("aria-label", sending ? "Envoi en cours" : "Envoyer");
 }
 
 function startNewConversation(folderId = null) {
@@ -533,6 +753,7 @@ function startNewConversation(folderId = null) {
 
   saveState();
   renderApp();
+  resetMessageInput();
   messageInput.focus();
 }
 
@@ -548,7 +769,7 @@ function clearActiveConversation() {
   activeConversation.messages = [];
   saveState();
   renderApp();
-  messageInput.value = "";
+  resetMessageInput();
   messageInput.focus();
 }
 
@@ -816,7 +1037,7 @@ async function sendMessage(rawMessage) {
   const message = rawMessage.trim();
   const activeConversation = getActiveConversation();
 
-  if (!message || !activeConversation) {
+  if (!message || !activeConversation || isSending) {
     return;
   }
 
@@ -830,13 +1051,13 @@ async function sendMessage(rawMessage) {
 
   activeConversation.messages.push({ role: "user", content: message });
   activeConversation.updatedAt = now;
-  messageInput.value = "";
+  resetMessageInput();
   saveState();
   renderSidebar();
   updateWelcomeState();
 
   addMessageToDom("user", message);
-  const thinkingMessage = addMessageToDom("assistant", "L'assistant r\u00e9fl\u00e9chit...");
+  const thinkingMessage = addMessageToDom("assistant", "L'assistant r\u00e9fl\u00e9chit...", { thinking: true });
   setSending(true);
 
   try {
@@ -852,15 +1073,15 @@ async function sendMessage(rawMessage) {
       throw new Error(payload.error || "La requ\u00eate n'a pas pu aboutir.");
     }
 
-    thinkingMessage.querySelector(".message-content").textContent = payload.answer;
+    updateAssistantMessage(thinkingMessage, payload.answer);
     activeConversation.messages.push({ role: "assistant", content: payload.answer });
     activeConversation.updatedAt = new Date().toISOString();
     saveState();
     renderSidebar();
     setStatus(payload);
   } catch (error) {
-    const errorMessage = "Erreur : impossible d'obtenir une r\u00e9ponse claire pour le moment.";
-    thinkingMessage.querySelector(".message-content").textContent = errorMessage;
+    const errorMessage = "Erreur : impossible d'obtenir une r\u00e9ponse claire pour le moment. V\u00e9rifiez le serveur Ollama ou relancez en mode test.";
+    updateAssistantMessage(thinkingMessage, errorMessage);
     activeConversation.messages.push({ role: "assistant", content: errorMessage });
     activeConversation.updatedAt = new Date().toISOString();
     saveState();
@@ -877,10 +1098,14 @@ chatForm.addEventListener("submit", (event) => {
   sendMessage(messageInput.value);
 });
 
+messageInput.addEventListener("input", resizeMessageInput);
+
 messageInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    chatForm.requestSubmit();
+    if (!isSending) {
+      chatForm.requestSubmit();
+    }
   }
 });
 
@@ -1041,5 +1266,6 @@ loadFolders();
 loadConversations();
 saveState();
 renderApp();
+resizeMessageInput();
 refreshStatus();
 refreshIcons();
