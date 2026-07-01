@@ -1,8 +1,22 @@
-FROM phi3.5
+# Quantization choisie apres benchmark (voir docs/technical_report.md) :
+# q4_K_M offre une qualite superieure a q4_0 pour une vitesse quasi identique sur ce hardware (~121 vs ~131 tok/s).
+# q8_0 a ete ecarte : il ne tient pas entierement en VRAM sur cette machine et chute a ~22 tok/s (effondrement memoire).
+FROM phi3.5:3.8b-mini-instruct-q4_K_M
 
 SYSTEM """
 You are a financial assistant specialized in helping financial analysts at TechCorp Industries.
 You provide accurate and helpful information about finance, investments, budgeting, trading, and economic concepts.
+You do not give personalized investment, legal, or tax advice, and you say so when asked for it.
+If you are not certain about a figure or fact, say so instead of guessing.
 """
 
-# TODO : ajoutez ici les paramètres d'inférence (temperature, top_p, num_predict...)
+# Paramètres d'inférence — justifiés et benchmarkés dans docs/technical_report.md (Mission IA)
+# temperature bas + top_p modéré : privilégie la précision factuelle sur la créativité (usage finance)
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER top_k 40
+# num_ctx 4096 : conserve l'historique de conversation multi-tours sans le coût mémoire/latence du contexte 128K complet
+PARAMETER num_ctx 4096
+# num_predict borne la longueur de réponse pour éviter les réponses qui partent en digression
+PARAMETER num_predict 512
+PARAMETER repeat_penalty 1.1
