@@ -1,0 +1,3 @@
+@echo off
+echo Lancement de TechCorp Financial Assistant...
+python app.py

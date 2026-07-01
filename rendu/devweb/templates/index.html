@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TechCorp Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navigation de conversation">
+        <div class="brand-block">
+          <span class="brand-mark" aria-hidden="true">T</span>
+          <div>
+            <p class="brand-name">TechCorp</p>
+            <p class="brand-context">DEV WEB</p>
+          </div>
+        </div>
+
+        <button id="newChatButton" class="new-chat-button" type="button">
+          <i data-lucide="plus" data-fallback="+" aria-hidden="true"></i>
+          Nouvelle conversation
+        </button>
+
+        <section class="conversation-panel" aria-label="Organisation des conversations">
+          <div class="sidebar-section">
+            <div class="section-header">
+              <button id="foldersToggle" class="section-toggle" type="button" aria-expanded="true">
+                <i class="section-chevron" data-lucide="chevron-down" data-fallback="v" aria-hidden="true"></i>
+                Dossiers
+              </button>
+              <button id="addFolderButton" class="section-action" type="button" aria-label="Cr&eacute;er un dossier">
+                <i data-lucide="plus" data-fallback="+" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div id="folderList" class="folder-list"></div>
+          </div>
+
+          <div class="sidebar-section">
+            <button id="recentsToggle" class="section-toggle section-toggle-full" type="button" aria-expanded="true">
+              <i class="section-chevron" data-lucide="chevron-down" data-fallback="v" aria-hidden="true"></i>
+              R&eacute;cents
+            </button>
+            <div id="recentConversationList" class="conversation-list"></div>
+          </div>
+        </section>
+
+        <div class="sidebar-meta" aria-live="polite">
+          <div class="meta-item">
+            <span class="meta-label">Statut Ollama</span>
+            <span id="statusBadge" class="status-badge status-checking">V&eacute;rification...</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Mod&egrave;le</span>
+            <strong id="modelName">{{ model }}</strong>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-main">
+        <section class="chat-stage" aria-label="Conversation avec l'assistant financier">
+          <div id="welcomePanel" class="welcome-panel">
+            <div class="welcome-content">
+              <h2>Comment puis-je vous aider sur un sujet financier&nbsp;?</h2>
+              <div class="suggestion-grid" aria-label="Suggestions de questions">
+                <button class="suggestion-card" type="button" data-suggestion="Explique-moi ce qu&rsquo;est la TVA">
+                  Explique-moi ce qu&rsquo;est la TVA
+                </button>
+                <button class="suggestion-card" type="button" data-suggestion="R&eacute;sume les risques d&rsquo;une hausse des taux">
+                  R&eacute;sume les risques d&rsquo;une hausse des taux
+                </button>
+                <button class="suggestion-card" type="button" data-suggestion="Analyse les points cl&eacute;s d&rsquo;un bilan financier">
+                  Analyse les points cl&eacute;s d&rsquo;un bilan financier
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+        </section>
+
+        <form id="chatForm" class="composer" aria-label="Envoyer une question">
+          <div class="composer-inner">
+            <button id="clearButton" class="clear-button" type="button">Vider</button>
+            <label for="messageInput" class="sr-only">Votre question</label>
+            <div class="input-shell">
+              <textarea
+                id="messageInput"
+                name="message"
+                rows="1"
+                maxlength="2000"
+                placeholder="Message TechCorp Financial Assistant..."
+                required
+              ></textarea>
+              <button id="sendButton" class="send-button" type="submit" aria-label="Envoyer">
+                <i data-lucide="arrow-up" data-fallback="^" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="warning">Assistant exp&eacute;rimental &mdash; ne pas saisir de donn&eacute;es sensibles.</p>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay" hidden>
+      <section
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalTitle"
+        aria-describedby="modalDescription"
+      >
+        <button id="modalCloseButton" class="modal-close-button" type="button" aria-label="Fermer">
+          <i data-lucide="x" data-fallback="x" aria-hidden="true"></i>
+        </button>
+        <h2 id="modalTitle"></h2>
+        <p id="modalDescription" class="modal-description"></p>
+        <form id="modalForm" class="modal-form">
+          <div id="modalField" class="modal-field">
+            <label id="modalInputLabel" for="modalInput"></label>
+            <input id="modalInput" type="text" autocomplete="off">
+          </div>
+          <div class="modal-actions">
+            <button id="modalCancelButton" class="modal-secondary-button" type="button">Annuler</button>
+            <button id="modalConfirmButton" class="modal-primary-button" type="submit">Valider</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
