@@ -145,10 +145,6 @@ def extract_answer(payload):
     return None
 
 
-def fallback_response(message, reason):
-    return mock_response(message, reason)
-
-
 def format_ollama_error(error, endpoint):
     if isinstance(error, requests.Timeout):
         return f"timeout apres {REQUEST_TIMEOUT} secondes."
@@ -254,7 +250,7 @@ def api_chat():
         answer = extract_answer(payload)
         if not answer:
             return jsonify(
-                fallback_response(
+                mock_response(
                     message,
                     "format de reponse inattendu depuis /api/chat.",
                 )
@@ -265,17 +261,17 @@ def api_chat():
         chat_error = error
         if not should_try_generate(error):
             return jsonify(
-                fallback_response(message, format_ollama_error(error, CHAT_ENDPOINT))
+                mock_response(message, format_ollama_error(error, CHAT_ENDPOINT))
             )
     except ValueError as error:
-        return jsonify(fallback_response(message, str(error)))
+        return jsonify(mock_response(message, str(error)))
 
     try:
         payload = call_ollama_generate(prompt)
         answer = extract_answer(payload)
         if not answer:
             return jsonify(
-                fallback_response(
+                mock_response(
                     message,
                     "format de reponse inattendu depuis /api/generate.",
                 )
@@ -286,13 +282,13 @@ def api_chat():
         chat_reason = format_ollama_error(chat_error, CHAT_ENDPOINT)
         generate_reason = format_ollama_error(error, GENERATE_ENDPOINT)
         return jsonify(
-            fallback_response(
+            mock_response(
                 message,
                 f"{chat_reason} Fallback /api/generate en echec : {generate_reason}",
             )
         )
     except ValueError as error:
-        return jsonify(fallback_response(message, str(error)))
+        return jsonify(mock_response(message, str(error)))
 
 
 if __name__ == "__main__":

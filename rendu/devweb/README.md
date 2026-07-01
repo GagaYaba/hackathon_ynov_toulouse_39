@@ -1,32 +1,37 @@
 # TechCorp Financial Assistant
 
-Interface DEV WEB pour le hackathon TechCorp.
+Interface DEV WEB du hackathon TechCorp.
 
-Cette application permet d'interagir avec le modèle `phi3-financial` via Ollama depuis une interface de chat professionnelle. Elle fonctionne aussi en mode mock si Ollama n'est pas encore disponible, afin de pouvoir tester la partie web indépendamment de l'infrastructure.
+Cette application fournit un chat web pour interagir avec le modèle financier via Ollama. Elle fonctionne avec un serveur Ollama local, avec le serveur INFRA exposé via ngrok, ou en mode mock si l'inférence n'est pas disponible.
 
-Le modèle est présenté dans le sujet comme Phi-3.5-Financial, mais son nom technique exposé par Ollama dans notre déploiement INFRA est `phi3-financial`.
+## Périmètre
 
-## Périmètre DEV WEB
+Cette interface couvre la mission production DEV WEB : rendre le modèle financier accessible via une interface de chat simple, testable et professionnelle.
 
-Cette interface couvre la mission production du hackathon : rendre le modèle Phi-3.5-Financial accessible via une interface de chat.
+Le sujet présente le modèle comme Phi-3.5-Financial, mais son nom technique exposé par Ollama dans notre déploiement INFRA est `phi3-financial`.
 
-Le projet contient aussi une mission R&D médicale liée au fine-tuning LoRA d'un modèle médical. Cette partie est expérimentale et n'est pas destinée au déploiement production ; elle n'est donc pas intégrée dans cette interface DEV WEB.
+Le repo contient aussi une mission médicale R&D liée au fine-tuning LoRA d'un modèle médical. Cette partie est expérimentale et n'est pas destinée au déploiement production ; elle n'est donc pas intégrée dans cette interface DEV WEB.
 
 ## Fonctionnalités
 
-- Interface de chat pour Phi-3.5-Financial.
-- Connexion prévue au serveur Ollama de l'équipe INFRA.
+- Interface de chat pour le modèle financier TechCorp.
+- Connexion à Ollama en local ou via le serveur INFRA distant.
+- Support d'une URL ngrok.
+- Backend Flask qui tente `/api/chat`, puis `/api/generate` en fallback.
 - Mode mock si Ollama n'est pas disponible.
-- Statut de connexion Ollama : connecté ou mode test.
+- Statut serveur affiché dans l'interface.
 - Historique de conversation côté navigateur.
-- Recherche locale dans les conversations et messages.
 - Conversations multiples sauvegardées en `localStorage`.
-- Organisation locale des conversations en dossiers et récents.
-- Drag and drop des conversations entre dossiers et récents.
-- Thème dark / light avec bascule depuis l'interface.
-- Préférence de thème sauvegardée en `localStorage`.
-- Proxy Flask entre le frontend et Ollama.
-- Configuration simple de l'URL Ollama et du nom du modèle.
+- Dossiers locaux et conversations récentes.
+- Recherche locale dans les chats.
+- Thème dark / light sauvegardé en `localStorage`.
+- Textarea auto-resize.
+- Envoi avec Entrée et retour ligne avec Shift + Entrée.
+- Markdown simple dans les réponses assistant.
+- Bouton copier sur les réponses assistant.
+- Scroll automatique vers le dernier message.
+- Icônes Lucide via CDN.
+- Mascotte TechCorp utilisée dans la sidebar et comme favicon.
 
 ## Stack
 
@@ -34,21 +39,25 @@ Le projet contient aussi une mission R&D médicale liée au fine-tuning LoRA d'u
 - Flask
 - requests
 - HTML / CSS / JavaScript vanilla
+- localStorage côté navigateur
+- Lucide Icons via CDN
 - Aucune base de données
 
 ## Architecture
 
 ```text
 rendu/devweb/
-├── app.py                 # Backend Flask + proxy vers Ollama
-├── requirements.txt       # Dépendances Python
-├── run.bat                # Lancement Windows en une commande
-├── README.md              # Documentation DEV WEB
+├── app.py
+├── requirements.txt
+├── run.bat
+├── README.md
 ├── templates/
-│   └── index.html         # Structure de l'interface
+│   └── index.html
 └── static/
-    ├── style.css          # Design de l'interface
-    └── app.js             # Logique frontend, historique, localStorage
+    ├── app.js
+    ├── style.css
+    └── assets/
+        └── techcorp-mascot.png
 ```
 
 ## Installation
@@ -62,16 +71,16 @@ python -m pip install -r requirements.txt
 
 ## Lancement
 
-Depuis `rendu/devweb/`, lancer l'application en une commande :
-
-```powershell
-run.bat
-```
-
-Ou directement avec Python :
+Depuis `rendu/devweb/` :
 
 ```powershell
 python app.py
+```
+
+Sur Windows, le lancement en une commande est aussi disponible :
+
+```powershell
+run.bat
 ```
 
 URL locale :
@@ -91,7 +100,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=phi3-financial
 ```
 
-Sous PowerShell, pour les modifier temporairement :
+PowerShell local :
 
 ```powershell
 $env:OLLAMA_BASE_URL = "http://localhost:11434"
@@ -99,11 +108,7 @@ $env:OLLAMA_MODEL = "phi3-financial"
 python app.py
 ```
 
-Si Ollama n'est pas disponible ou si le modèle n'est pas encore installé, l'API `/api/chat` renvoie une réponse de test claire avec le provider `mock`.
-
-## Connexion au serveur INFRA ngrok
-
-L'équipe INFRA peut exposer Ollama via une URL distante ngrok. Dans ce cas, configurer uniquement l'URL de base, sans chemin API :
+PowerShell ngrok :
 
 ```powershell
 $env:OLLAMA_BASE_URL = "https://pacifier-diaper-geologist.ngrok-free.dev"
@@ -111,93 +116,133 @@ $env:OLLAMA_MODEL = "phi3-financial"
 python app.py
 ```
 
-Ne pas mettre `/api/generate` dans `OLLAMA_BASE_URL`. L'application construit elle-même l'appel vers `POST /api/chat`.
+`OLLAMA_BASE_URL` doit être la racine du serveur, sans `/api/chat` ni `/api/generate`. L'application normalise automatiquement l'URL si l'utilisateur met `/api/chat` ou `/api/generate` par erreur.
 
-Le backend essaie d'abord l'endpoint Ollama standard :
+## Intégration INFRA
 
-```text
-POST /api/chat
+L'équipe INFRA expose Ollama. L'interface web appelle uniquement le backend Flask local, puis le backend relaie les requêtes vers l'API Ollama configurée avec `OLLAMA_BASE_URL`.
+
+Endpoints utilisés côté INFRA :
+
+- `GET /api/tags` pour vérifier que le serveur d'inférence répond.
+- `POST /api/chat` en endpoint principal.
+- `POST /api/generate` en fallback si `/api/chat` n'est pas disponible.
+
+Informations à demander à l'équipe INFRA :
+
+- URL exacte du serveur Ollama.
+- Port utilisé, si l'URL n'est pas une URL ngrok complète.
+- Nom exact du modèle exposé.
+- Confirmation que `/api/tags` répond.
+- Endpoint disponible pour la génération : `/api/chat`, `/api/generate`, ou les deux.
+
+## Routes API locales
+
+### `GET /api/status`
+
+Retourne l'état de connexion au serveur d'inférence.
+
+Exemple de réponse :
+
+```json
+{
+  "connected": true,
+  "provider": "ollama",
+  "model": "phi3-financial",
+  "baseUrl": "https://pacifier-diaper-geologist.ngrok-free.dev",
+  "chatEndpoint": "/api/chat",
+  "fallbackEndpoint": "/api/generate"
+}
 ```
 
-Si `/api/chat` n'est pas disponible, par exemple avec une erreur `404` ou `405`, le backend tente automatiquement le fallback :
+### `POST /api/chat`
 
-```text
-POST /api/generate
+Body :
+
+```json
+{
+  "message": "Explique-moi ce qu'est la TVA",
+  "history": []
+}
 ```
 
-Le frontend continue donc d'appeler uniquement le backend Flask local `POST /api/chat`. Le choix entre `/api/chat` et `/api/generate` reste géré côté Flask.
-
-Si l'URL est saisie par erreur avec `/api/generate` ou `/api/chat`, le backend nettoie ce suffixe au lancement. La valeur recommandée reste toutefois :
-
-```text
-OLLAMA_BASE_URL=https://pacifier-diaper-geologist.ngrok-free.dev
-```
-
-Si le serveur INFRA expose seulement `/api/generate`, l'interface peut continuer à fonctionner grâce au fallback automatique.
-
-## Connexion avec l'équipe INFRA
-
-Si Ollama tourne sur le même PC que l'application DEV WEB, garder la configuration par défaut :
-
-```text
-OLLAMA_BASE_URL=http://localhost:11434
-```
-
-Si Ollama tourne sur le PC d'un camarade, remplacer `localhost` par son IP locale, par exemple :
-
-```text
-OLLAMA_BASE_URL=http://192.168.1.42:11434
-```
-
-Demander à l'équipe INFRA de confirmer :
-
-- l'URL exacte du serveur Ollama ;
-- le port utilisé ;
-- le nom exact du modèle exposé ;
-- la confirmation que `GET /api/tags` répond ;
-- la confirmation que `POST /api/chat` fonctionne.
-
-## Routes Flask
-
-- `GET /` : affiche l'interface web.
-- `GET /api/status` : vérifie la disponibilité d'Ollama via `/api/tags` quand l'endpoint est disponible. Si `/api/tags` n'est pas exposé par ngrok, l'interface passe en mode test mais le chat peut quand même être tenté via `/api/chat`.
-- `POST /api/chat` : transmet le message utilisateur et l'historique actif à Ollama via `/api/chat`, tente `/api/generate` si `/api/chat` n'est pas disponible, ou renvoie une réponse mock si Ollama n'est pas disponible.
-
-Réponse attendue côté frontend pour `/api/chat` :
+Réponse possible :
 
 ```json
 {
   "answer": "...",
-  "provider": "ollama-chat, ollama-generate ou mock",
-  "connected": false
+  "provider": "ollama-chat",
+  "connected": true
 }
 ```
 
-Le champ `connected` vaut `true` lorsque la réponse vient d'Ollama, et `false` lorsque l'application bascule en mode mock. Le champ `provider` vaut `ollama-chat` si `/api/chat` a répondu, `ollama-generate` si le fallback `/api/generate` a été utilisé, ou `mock` en mode test.
+Providers possibles :
+
+- `ollama-chat` : réponse obtenue via `/api/chat`.
+- `ollama-generate` : réponse obtenue via le fallback `/api/generate`.
+- `mock` : réponse de test parce que le serveur d'inférence n'a pas répondu correctement.
 
 ## Stockage local
 
-L'application ne nécessite aucune base de données. Les données d'interface sont conservées dans le navigateur avec `localStorage` :
+L'application ne nécessite aucune base de données. Les données d'interface sont stockées dans le navigateur avec `localStorage` :
 
 - `techcorp_conversations` : conversations et messages.
 - `techcorp_active_conversation_id` : conversation active.
 - `techcorp_folders` : dossiers de la sidebar.
 - `techcorp_sidebar_state` : état replié/déplié des sections.
+- `techcorp_theme` : préférence dark / light.
 
-## Scénario de test
+Il n'y a pas de synchronisation serveur. Pour réinitialiser les données locales, il est possible de supprimer le cache ou le stockage du site dans le navigateur.
 
-1. Depuis `rendu/devweb/`, lancer `python -m pip install -r requirements.txt`.
-2. Lancer l'application avec `run.bat` ou `python app.py`.
-3. Ouvrir `http://localhost:5000`.
-4. Vérifier le badge de statut Ollama.
-5. Poser une question finance, par exemple : `Résume les risques principaux d'une hausse des taux.`
-6. Créer une nouvelle conversation et vérifier que l'historique reste visible.
-7. Créer un dossier, déplacer une conversation dedans, puis rafraîchir la page pour vérifier la persistance locale.
+## Sécurité et limites
 
-## Limites actuelles et améliorations possibles
-
+- Ne pas saisir de données sensibles dans l'interface.
+- Le frontend ne contacte pas directement Ollama.
+- Le backend Flask sert de proxy entre l'interface et Ollama.
+- Les headers utilisés pour ngrok restent côté backend.
+- Les erreurs retournées au frontend sont simplifiées.
+- Les messages utilisateur sont limités à 2000 caractères.
+- Pas d'authentification, car hors périmètre du rendu DEV WEB.
 - Pas de streaming pour l'instant.
-- Mode mock activé si Ollama n'est pas disponible.
-- Historique stocké localement dans le navigateur, sans synchronisation serveur.
-- Possibilité d'ajouter le streaming si le temps le permet.
-- Possibilité d'ajouter une meilleure gestion des erreurs si besoin.
+- Historique uniquement local, sans synchronisation serveur.
+- Modèle et intégration expérimentaux dans le contexte du hackathon.
+
+## Tests
+
+Vérifications syntaxiques depuis la racine du repo :
+
+```powershell
+python -m py_compile rendu/devweb/app.py
+node --check rendu/devweb/static/app.js
+git diff --check -- rendu/devweb
+```
+
+Test API local après lancement de l'application :
+
+```powershell
+Invoke-RestMethod http://localhost:5000/api/status
+Invoke-RestMethod -Method Post http://localhost:5000/api/chat -ContentType "application/json" -Body '{"message":"Explique-moi ce qu''est la TVA","history":[]}'
+```
+
+Test manuel :
+
+1. Lancer l'application depuis `rendu/devweb/`.
+2. Ouvrir `http://localhost:5000`.
+3. Vérifier le statut Ollama.
+4. Envoyer une question financière.
+5. Vérifier l'historique.
+6. Tester les conversations multiples et les dossiers.
+7. Tester la recherche locale.
+8. Tester le thème dark / light.
+9. Tester le bouton copier.
+10. Vérifier le mode mock si Ollama est indisponible.
+
+## Cohérence avec le sujet
+
+La partie DEV WEB couvre les attentes demandées :
+
+- interface de chat ;
+- connexion au serveur INFRA via configuration Ollama/ngrok ;
+- historique de conversation côté navigateur ;
+- état de connexion ou mode test ;
+- lancement depuis `rendu/devweb/` avec `python app.py` ou `run.bat`.
